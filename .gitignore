@@ -26,3 +26,8 @@
 *.exe
 *.out
 *.app
+
+# Latex
+*.aux
+*.log
+doc/hopskip.pdf

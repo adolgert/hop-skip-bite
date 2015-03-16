@@ -1,0 +1,339 @@
+\documentclass{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{palatino}
+\usepackage{microtype}
+
+
+\title{What Is Hop-Skip-Jump?}
+\author{Drew Dolgert}
+\date{\today}
+
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+The hop-skip-jump model was introduced in X as a simplest model
+of dynamic invasion to include multiscale movement behavior.
+The model is a heuristic version of, ``all I can say is that the
+vector moves more quickly in this range than outside this range.''
+Statistically speaking, this kind of heuristic becomes a
+maximum entropy distribution.
+
+We are interested in dynamical spread of insects in complex
+urban environments. There can be subtly-different versions of
+even so simple a model, so we ask here which versions are
+most appropriate to use for our main tasks, estimation and
+inference.
+
+
+\section{Overview of Disease Spread}
+
+Focus first on the process of infestation, ignoring observation
+of infestation or removal from a house.
+\begin{enumerate}
+  \item A within-house insect population model leads to a rate of
+insects leaving either with people or by themselves.
+  \begin{enumerate}
+    \item State representation
+    \begin{enumerate}
+    \item Binary---Infected or not infected.
+    \item Discrete levels---Low, medium, high
+    \item Continuous
+    \end{enumerate}
+    \item Model
+    \begin{enumerate}
+      \item Logistic growth, which is called Beverton-Holt in discrete time
+      \item MaxEnt of some sort on discrete levels
+      \item Ricker, chaotic
+    \end{enumerate}
+  \end{enumerate}
+  \item Three kinds of dispersal from the house.
+    \begin{enumerate}
+    \item A dispersal model for insects determines a transmission rate
+to neighboring houses.
+    \begin{enumerate}
+      \item Walk/flight models for Triatoma.
+      \item Uniform within a cutoff distance (for a given metric)
+      \item Kernel-based
+    \end{enumerate}
+    \item A movement model for people
+determines spread over short and long distances.
+    \begin{enumerate}
+      \item Within-cutoff distance versus outside of it.
+      \item Kernel-based
+    \end{enumerate}
+    \item There
+is also the possibility of importation from outside the domain.
+This is often included in order to exclude zero-likelihood
+events in an inference.
+    \begin{enumerate}
+      \item Usually a constant value.
+      \item Could be seasonal.
+    \end{enumerate}
+    \end{enumerate}
+  \item Once an insect arrives at a house, there is, from the
+within-house model, a possibility for survival of the population
+past the initial hazard of failure to infest.
+\end{enumerate}
+
+
+\section{Current Continuous Time Stochastic Model}
+There are two different models currently in use by the group,
+both of which treat houses (any dwelling) as infecting other
+houses.
+One conserves the rate at which vectors leave the house
+and the other does not.
+
+\subsection{Conservation in English}
+The state of both models is houses on a landscape, where
+each is either infested or not infested. Ignoring
+observation and recovery, let's focus on a susceptible-infected
+kind of process. At each time step, $T_n$, each infected house
+has a hazard rate for infecting any other house, which we label
+by infecting house, $i$, target susceptible, $j$, and time step
+$n$, as $\beta_{ij}(T_n)$. This hazard rate can be normalized per
+infectious house. It can be normalized over the number of neighbors,
+or it can be unnormalized, as explained below.
+
+Which makes physical sense, normalization or not?
+The hazard rate for infection, $\beta$, represents not just whether
+a vector leaves but whether it both leaves and successfully infests
+the destination house. When we picture steps of the vector leaving,
+wandering, arriving, setting up shop in the new place, they
+all factor into a single $\beta$, which is a hazard rate for
+a state change in the neighboring house, given an infected
+state in the source house. The binary state of a house being
+infected or not infected probably isn't decided strictly according
+to whether a single individual vector arrived but whether
+the initial importation can survive past the early time stochastic
+die-off.
+
+Let's walk through what we might believe.
+\begin{enumerate}
+  \item The rate of vectors leaving a house should be determined
+        by the carrying capacity, which we might set at a uniform
+        value to start. For wandering insects, this makes sense.
+        For insects hitching a ride on people, is this still true,
+        or do people leave more often when there are more neighbors?
+  \item Wandering insects are more likely to find a good home if there
+        are more houses as neighbors. A single neighbor or an infested
+        house is more likely to receive an importation than a house
+        among many neighbors of an infested house.
+  \item Closer neighbors, because they receive more importations,
+        are more likely to survive early time stochastic die-off.
+\end{enumerate}
+For jumps, it seems conservation of hazard represents the notion
+that people in a house travel only so often. For hops, conservation
+represents the idea that bugs are good at walking or flying towards
+light.
+
+The multiscale model is about two processes, spread by people and
+spread by vector locomotion. Within hop distance, locomotion
+dominates. The synthetic likelihood paper uses separate conservation
+for the two length scales, which says that the two processes
+happen with separate likelihoods.
+
+\subsection{Conservation in Math}
+The simplest form of hop-skip-jump states that the hazard rate
+for infecting a house depends only on the distance to that
+house, so
+\begin{equation}
+  \beta_{ij}(T_n)=\beta_h\quad\mbox{or}\quad \beta_j,
+\end{equation}
+where $\beta_h$ is for hops and $\beta_j$ is for jumps. This is a
+limited form of a distance kernel. Given a distance $r_{ij}$
+between houses, a pure distance kernel would be
+\begin{equation}
+  \beta_{ij}(T_n)=\beta(r_{ij}).
+\end{equation}
+A consequence of the bare hazard rates is that the total hazard
+rate for vectors leaving a host depends on the number of
+neighbors,
+\begin{equation}
+  \sum_j \beta_{ij}(T_n)=\sum_j\beta(r_{ij}).
+\end{equation}
+More insects leave houses with more neighbors. This is the model
+used currently for the Jewell-type inference on invasions.
+
+We could, instead, normalize the number of insects to leave,
+retaining an \emph{orientation preference\/} for where they go.
+The normalization, $\gamma$ would come from the total hazard rate for leaving
+a house,
+\begin{equation}
+  \sum_j \gamma\beta_{ij}(T_n)=\gamma\sum_j\beta(r_{ij})\equiv \beta_i(T_n).
+\end{equation}
+This leads to a normalization
+\begin{equation}
+  \gamma_i(T_n)=\beta_i(T_n)/\sum_j\beta(r_{ij})
+\end{equation}
+on the hazard rates. Note that the total hazard for leaving a house
+can depend on the house and the time step.
+This first form of conservation of vectors is not what we use.
+
+Instead, the work with synthetic likelihood conserves vector dispersal
+for each of the two main types, vectors leaving the house themselves versus
+vectors carried by people. Using $n_h$ as the number of neighbors in hopping
+distance and $n_{ij}$ as the number of neighbors in jumping distance of $i$,
+\begin{eqnarray}
+  n_{ih} \gamma_{ih}\beta_h& =&\beta_i\phi \\
+  n_{ij} \gamma_{ij}\beta_j&= &\beta_i(1-\phi)
+\end{eqnarray}
+Solving for the hazard rate for transmission to any one neighbor gives
+\begin{eqnarray}
+  \gamma_{ih}\beta_h& =&\beta_i\phi/n_{ih} \\
+  \gamma_{ij}\beta_j&= &\beta_i(1-\phi)/n_{ij}
+\end{eqnarray}
+For uniform grids, the counts of neighbors won't change, but they
+could be interesting on city landscapes. Note that the hazards listed
+here are not exactly those used in the synthetic likelihoods paper
+because of complications about random importation and a probability
+for failure of an importation to surivive stochastic die-off in
+the infested house.
+
+There could be a third way to normalize. Use one normalization for
+spread by travel of people and a separate normalization for locomotion.
+Instead of having a hop hazard and jump hazard, have a uniform
+travel-any-distance by people hazard and a hop-by-vector hazard
+which has a cutoff distance. It's the sum of two normalized, kernel-based
+models.
+
+\subsection{Note on Maximum Entropy}
+The classic maximum entropy distribution to express ``it happened between
+this time and this time'' is a uniform distribution. For continuous-time
+stochastic simulation, the equivalent maximum entropy isn't a uniform
+distribution but an exponential distribution, with uniform hazard rate.
+I have a citation which explains this, but it stems from simulation
+as being about the probability of something happening given that it has
+not yet happened.
+
+
+\section{Bug Counts}
+Is there some way to increase the amount of knowledge we have about
+the system by incorporating bug counts? The state of the house wouldn't
+be infested or not infested but would include some estimate of the level
+of infestation. Counts are an observation process on top of the model
+for how the bugs increase over time.
+
+\subsection{Models for Bug Growth}
+The two models under consideration are a Ricker model and some form
+of logistic growth.
+
+The Ricker model is a discrete time model for the density of individuals,
+of the form
+\begin{equation}
+  N_{n+1}=N_n\exp\left[r(1-N_n/K\right]
+\end{equation}
+where $r$ is growth rate and $K$ carrying capacity.
+
+Logistic growth is pretty standard. The deterministic form is
+\begin{equation}
+N(t)=\frac{N_0Ke^{rt}}{K+N_0(e^{rt}-1)}.
+\end{equation}
+It's the solution to the differential equation
+\begin{equation}
+  \frac{dN}{dt}=r\left(1-N/K\right)N
+\end{equation}
+The discrete form of this is called Beverton-Holt.
+
+This is equivalent to a birth rate $\beta(1-N/K)$ and death rate $\delta$
+in a well-mixed population for a stochastic, continuous-time model.
+Another kind of solution makes the differential equation stochastic
+as an Ito process. Another odd way to treat bug levels as stochastic
+is to model the growth rate, $r$, as a random variable and 
+use random variable transformation (RVT) to obtain a resulting
+stochastic value for $N(t)$.
+
+\subsection{Inclusion of Bug Counts in the Model}
+The data is the number of bugs observed in each house, a number
+usually below ten but rarely near two hundred. We would like to include
+this information in an inference of the sort Jewell described, so
+it's part of a continuous-time likelihood.
+
+Any variation in a continuous-time stochastic model happens in
+one of three places.
+\begin{enumerate}
+  \item Change the state of the system by changing the discrete
+        places.
+  \item Change the state of the system by changing representation
+        of the tokens. These can be discrete or continuous.
+  \item Change the distribution associated with a transition.
+\end{enumerate}
+
+An obvious atomistic-style model includes a token for each bug.
+This simplifies construction of a simulation, but it greatly
+increases the state space, which might make inference harder
+rather than easier. Imagine an MCMC where the number of bugs
+per house is a parameter.
+
+If we think of logistic growth as deterministic, then the number
+of bugs since infection is known, and it just scales the total
+hazard rate, $\beta_i$ for bugs leaving the house. In the MCMC inference,
+there would still be only one parameter per house, the time
+of infection. The hazard for infecting neighbors, however,
+would follow a logistic growth, so it requires numerical integration.
+Having a time-dependent hazard rate would also require root-finding
+in a non-exponential continous-time solver. This is doable, just
+more complicated. The total hazard for bugs to leave is $\beta_i$
+and the parameter for bug hazard is $\beta_0$. $T_i$ is time of
+infection for the house.
+\begin{equation}
+  \beta_i(T)=\beta_0N(T-T_i)
+\end{equation}
+
+Another option is to discretize the infection level of a house in 
+some way that is informative about how long ago the house
+was infested. If we give a house three levels, then we could 
+identify a hazard rate for movement from one level to the next
+by performing stochastic simulations of bug growth and then using
+survival analysis to determine rates for house movement to the
+next state. This makes the infection process for neighboring
+houses look simpler, but the rate for movement among infection
+stages could be non-exponential unless we approximate with an exponential.
+
+Let's work through the math of a particular case. We imagine that
+there are an infinite number of recovered states, one for each bug count.
+This is OK in Gillespie if handled as a separate draw within a
+hierarchical direct method. The point is that we observe the count of bugs
+at the moment we see the house is recovered. From this count we want
+to estimate when the house was infected. We don't use the bug count
+in any other place during simulation. It's just there for inference.
+Mathematically, that's $P(n_o | T_r-T_i)$. This comes in two pieces,
+the probability of a number of bugs and the probability of the observing
+a certain number. By the law of total probability, that's
+\begin{equation}
+  P(n_o|T_r-T_i)=\sum_{n_b}P(n_o|n_b)P(n_b|T_r-T_i)
+\end{equation}
+For the observation process, we can use a Poisson process.
+For the number of bugs, given the time, we have a bunch of
+options, as above. In a situation like this, ensuring 
+sufficient expression of our lack of surety seems a good call.
+We could simulate it stochastically (throwing away those trajectories
+which collapse early), or find a closed form solution, which I cannot
+guess.
+
+Once we decide on $P(n_o|T_r-T_i)$, then we can simulate the
+infestation process with our typical continuous-time SIR
+and annotate it after the fact with a number of bugs at each place,
+given the period of infection for an individual house.
+This happens, in this case, not to violate Gillespie because there
+can be no conflicts about this transition with enabling other
+transitions.
+
+Once we have a $P(n_o|T_r-T_i)$ that we like, what we need for
+inference is $P(T_r-T_i|n_o)$.
+\begin{equation}
+  P(T_r-T_i|n_o)P(n_o)=P(n_o|T_r-T_i)P(T_r-T_i)
+\end{equation}
+Oh, look, it's Bayes' rule. This will give us the pdf to use
+in a likelihood for MCMC.
+
+\end{document}
