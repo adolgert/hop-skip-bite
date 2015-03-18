@@ -4,7 +4,8 @@
 #include <vector>
 #include "boost/any.hpp"
 #include "smv.hpp"
-#include "rng.hpp"
+#include "spatial_process.hpp"
+#include "simple_hazard.hpp"
 
 namespace smv=afidd::smv;
 using namespace smv;
@@ -12,7 +13,7 @@ using namespace smv;
 namespace hsb {
 namespace simple_hazard {
 
-enum Parameter : int { none, beta0, beta1, beta2, gamma };
+enum class Parameter : int { none, beta0, beta1, beta2, gamma };
 
 // A token is an instance of this class.
 struct AnonymousToken {
@@ -20,7 +21,7 @@ struct AnonymousToken {
     inline friend
     std::ostream& operator<<(std::ostream& os, const AnonymousToken& at) {
         return os << "T";
-    }    I
+    }
 };
 
 
@@ -76,11 +77,11 @@ struct SIRTKey {
 
 
 // This is as much of the marking as the transition will see.
-using Local=LocalMarking<Uncolored<IndividualToken>>;
+using Local=LocalMarking<Uncolored<AnonymousToken>>;
 // Extra state to add to the system state. Will be passed to transitions.
 struct WithParams {
   // Put our parameters here.
-  std::map<int,double> params;
+  std::map<Parameter,double> params;
 };
 
 
@@ -102,7 +103,7 @@ class Infect0 : public SIRTransition {
         int64_t I=lm.template Length<0>(0);
         int64_t S=lm.template Length<0>(1);
         if (S>0 && I>0) {
-            double rate=s.params[Parameter::beta0];
+            double rate=s.params.at(Parameter::beta0);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -128,7 +129,7 @@ class Infect1 : public SIRTransition {
         int64_t I=lm.template Length<0>(0);
         int64_t S=lm.template Length<0>(1);
         if (S>0 && I>0) {
-            double rate=s.params[Parameter::beta1];
+            double rate=s.params.at(Parameter::beta1);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -151,7 +152,7 @@ class Notify : public SIRTransition {
         double te, double t0, RandGen& rng) override {
         int64_t I=lm.template Length<0>(0);
         if (I>0) {
-            double rate=s.params[Parameter::gamma];
+            double rate=s.params.at(Parameter::gamma);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -169,7 +170,7 @@ using SIRGSPN=
     ExplicitTransitions<SIRPlace, SIRTKey, Local, RandGen, WithParams>;
 
 
-void BuildSystem(SIRGSPN& bg, std::vector<std::tuple<double,2>>& point,
+void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
     RandGen& rng) {
     using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
 
@@ -181,14 +182,14 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::tuple<double,2>>& point,
 
     for (int64_t source_idx=0; source_idx<point.size(); ++source_idx) {
         auto source=SIRPlace{source_idx, 1};
-        double source_x=std::get<0>(point[source_idx]);
-        double source_y=std::get<1>(point[source_idx]);
+        double source_x=point[source_idx][0];
+        double source_y=point[source_idx][1];
         for (int64_t target_idx=0; target_idx<point.size(); ++target_idx) {
             auto susceptible=SIRPlace{target_idx, 0};
             auto infected=SIRPlace{target_idx, 1};
-            double target_x=std::get<0>(point[target_idx]);
-            double target_y=std::get<1>(point[target_idx]);
-            if ((source_x-target_x)**2 + (source_y-target_y)**2<0.09) {
+            double target_x=point[target_idx][0];
+            double target_y=point[target_idx][1];
+            if (pow(source_x-target_x, 2) + pow(source_y-target_y, 2)<0.09) {
                 bg.AddTransition({source_idx, target_idx, 1},
                     {Edge{source, -1}, Edge{susceptible, -1},
                     Edge{infected, 1}},
@@ -203,15 +204,15 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::tuple<double,2>>& point,
 
         bg.AddTransition({source_idx, source_idx, 3},
           {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, 1}},
-          std::unique_ptr<SIRTransition(new Notify()));
+          std::unique_ptr<SIRTransition>(new Notify()));
 
         auto nsource=SIRPlace{source_idx, 2};
         for (int64_t target_idx=0; target_idx<point.size(); ++target_idx) {
             auto susceptible=SIRPlace{target_idx, 0};
             auto infected=SIRPlace{target_idx, 1};
-            double target_x=std::get<0>(point[target_idx]);
-            double target_y=std::get<1>(point[target_idx]);
-            if ((source_x-target_x)**2 + (source_y-target_y)**2<0.09) {
+            double target_x=point[target_idx][0];
+            double target_y=point[target_idx][1];
+            if (pow(source_x-target_x, 2) + pow(source_y-target_y,2)<0.09) {
                 bg.AddTransition({source_idx, target_idx, 2},
                     {Edge{nsource, -1}, Edge{susceptible, -1},
                     Edge{infected, 1}},
@@ -233,7 +234,7 @@ struct SIROutput {
  public:
   SIROutput(const GSPN& gspn, int64_t individual_cnt)
   : gspn_(gspn), individual_cnt_(individual_cnt),
-  sir_(individual_cnt, std::tuple<int64_t,3>(0, -1, -1)) {}
+  sir_(individual_cnt, std::array<int64_t,3>{0, -1, -1}) {}
 
   bool operator()(const SIRState& state) {
     times_.push_back(state.CurrentTime());
@@ -279,7 +280,7 @@ struct SIROutput {
   const GSPN& gspn_;
   int64_t individual_cnt_;
   std::vector<double> times_;
-  std::vector<std::tuple<int64_t,3>> sir_;
+  std::vector<std::array<int64_t,3>> sir_;
 };
 
 
@@ -288,12 +289,14 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 
-  int64_t place_cnt=3*individual_cnt;
-  int64_t transition_cnt=(individual_cnt**2)*2 + individual_cnt;
-  SIRGSPN gspn(place_cnt+transition_cnt);
-  BuildSystem(gspn, individual_cnt, rng);
+  auto points=complete_spatial_randomness({0, 1, 0, 1}, individual_cnt, rng);
 
-  using Mark=MarkingK<SIRGSPN::PlaceKey, Uncolored<IndividualToken>>;
+  int64_t place_cnt=3*individual_cnt;
+  int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
+  SIRGSPN gspn(place_cnt+transition_cnt);
+  BuildSystem(gspn, points, rng);
+
+  using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
 
   SIRState state;
@@ -303,13 +306,13 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   state.user.params[Parameter::beta2]=boost::any_cast<double>(params["beta2"]);
   state.user.params[Parameter::gamma]=boost::any_cast<double>(params["gamma"]);
 
-  std::uniform_int_distribution random_individual(0, individual_cnt-1);
+  std::uniform_int_distribution<int64_t> random_individual(0, individual_cnt-1);
   int64_t infected_start=random_individual(rng);
   for (int64_t init_idx=0; init_idx<individual_cnt; ++init_idx) {
     if (init_idx!=infected_start) {
-      Add<0>(state.marking, gspn.PlaceVertex({init_idx, 0}));
+      Add<0>(state.marking, gspn.PlaceVertex({init_idx, 0}), AnonymousToken{});
     } else {
-      Add<0>(state.marking, gspn.PlaceVertex({init_idx, 1}));
+      Add<0>(state.marking, gspn.PlaceVertex({init_idx, 1}), AnonymousToken{});
     }
   }
 
@@ -319,8 +322,7 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   using Dynamics=StochasticDynamics<SIRGSPN,SIRState,RandGen>;
   Dynamics dynamics(gspn, {&competing});
 
-  SIROutput<SIRGSPN,SIRState> output_function(gspn, competing,
-    observer, traj_observer, seir_cnt, pen_cnt, animals_per_pen);
+  SIROutput<SIRGSPN,SIRState> output_function(gspn, individual_cnt);
 
   dynamics.Initialize(&state, &rng);
 
@@ -328,7 +330,7 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   bool running=true;
   auto nothing=[](SIRState&)->void {};
   double last_time=state.CurrentTime();
-  while (running && state.CurrentTime()<end_time) {
+  while (running) {
     running=dynamics(state);
     if (running) {
       double new_time=state.CurrentTime();

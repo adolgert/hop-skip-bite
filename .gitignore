@@ -31,3 +31,5 @@
 *.aux
 *.log
 doc/hopskip.pdf
+src/simple_hazard
+src/hsb_version.hpp

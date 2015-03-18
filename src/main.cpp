@@ -2,6 +2,10 @@
 #include <sstream>
 #include "boost/program_options.hpp"
 
+#include "simple_hazard.hpp"
+#include "rng.hpp"
+
+using namespace hsb;
 
 
 int main(int argc, char *argv[]) {
@@ -17,6 +21,6 @@ int main(int argc, char *argv[]) {
 
   int64_t rand_seed=33333;
   RandGen rng(rand_seed);
-  simple_hazard::SIR_run(params, rng);
+  hsb::simple_hazard::SIR_run(params, rng);
   return 0;
 }

@@ -1,6 +1,10 @@
+#ifndef _SPATIAL_PROCESS_HPP_
+#define _SPATIAL_PROCESS_HPP_ 1
+
 #include <vector>
-#include <tuple>
+#include <array>
 #include <random>
+#include <cmath>
 
 namespace hsb {
 
@@ -11,18 +15,18 @@ namespace hsb {
  *  \param rng A random number generator
  */
 template<typename RNG>
-std::vector<std::tuple<double,2>> complete_spatial_randomness(
+std::vector<std::array<double,2>> complete_spatial_randomness(
         std::vector<double> bounds, int64_t cnt, RNG& rng) {
     assert(cnt>0);
     assert(bounds[1]>bounds[0]);
     assert(bounds[3]>bounds[2]);
 
-    auto point=new std::vector<std::tuple<double,2>>(cnt, {0, 0});
-    std::uniform_real_distribution left_right(bounds[0], bounds[1]);
-    std::uniform_real_distribution up_down(bounds[1], bounds[3]);
+    auto point=std::vector<std::array<double,2>>(cnt, {0, 0});
+    std::uniform_real_distribution<double> left_right(bounds[0], bounds[1]);
+    std::uniform_real_distribution<double> up_down(bounds[1], bounds[3]);
     auto back_ptr=point.begin();
     for (int64_t i=0; i<cnt; ++i) {
-      *back_ptr++=std::make_tuple(left_right(rng), up_down(rng));
+      *back_ptr++={left_right(rng), up_down(rng)};
     }
     return point;
 }
@@ -44,7 +48,7 @@ std::vector<std::tuple<double,2>> complete_spatial_randomness(
  *  \param rng random number generator
  */
 template<typename RNG>
-std::vector<std::tuple<double,2>> hard_sphere_process(
+std::vector<std::array<double,2>> hard_sphere_process(
     std::vector<double> bounds, int64_t cnt, double areal_fraction, RNG& rng) {
 
     assert(cnt>0);
@@ -53,20 +57,20 @@ std::vector<std::tuple<double,2>> hard_sphere_process(
 
     double min_distance2=4*areal_fraction*(bounds[1]-bounds[0])*
         (bounds[3]-bounds[2])/(boost::math::constants::pi<double>()*cnt);
-    std::uniform_real_distribution left_right(bounds[0], bounds[1]);
-    std::uniform_real_distribution up_down(bounds[1], bounds[3]);
+    std::uniform_real_distribution<double> left_right(bounds[0], bounds[1]);
+    std::uniform_real_distribution<double> up_down(bounds[1], bounds[3]);
 
-    auto point=new std::vector<std::tuple<double,2>>(cnt, {0, 0});
+    auto point=std::vector<std::array<double,2>>(cnt, {0, 0});
     int64_t draw_idx=0;
     int64_t found_idx=0;
     while (found_idx<cnt && draw_idx<cnt*10000) {
-        auto xy=std::make_tuple(left_right(rng), up_down(rng));
+        auto xy=std::array<double,2>{left_right(rng), up_down(rng)};
         bool found{true};
         for (int64_t search_idx=0; search_idx<found_idx; ++search_idx) {
-            auto x=std::get<0>(point[search_idx]);
-            auto y=std::get<1>(point[search_idx]);
-            double distance2=(x-std::get<0>(xy))**2 + (y-std::get<1>(xy))**2;
-            if (distance2<min_distance) {
+            auto x=point[search_idx][0];
+            auto y=point[search_idx][1];
+            double distance2=pow(x-xy[0], 2) + pow(y-xy[1], 2);
+            if (distance2<min_distance2) {
                 found=false;
                 break;
             }
@@ -82,3 +86,5 @@ std::vector<std::tuple<double,2>> hard_sphere_process(
 
 
 }
+
+#endif //_SPATIAL_PROCESS_HPP_
