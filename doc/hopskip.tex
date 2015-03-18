@@ -34,29 +34,26 @@ even so simple a model, so we ask here which versions are
 most appropriate to use for our main tasks, estimation and
 inference.
 
-
-\section{Overview of Disease Spread}
-
-Focus first on the process of infestation, ignoring observation
-of infestation or removal from a house.
+What are the mechanisms for spread, ignoring observation
+or removal from a house?
 \begin{enumerate}
   \item A within-house insect population model leads to a rate of
 insects leaving either with people or by themselves.
   \begin{enumerate}
-    \item State representation
-    \begin{enumerate}
-    \item Binary---Infected or not infected.
-    \item Discrete levels---Low, medium, high
-    \item Continuous
-    \end{enumerate}
-    \item Model
+    \item Growth Model
     \begin{enumerate}
       \item Logistic growth, which is called Beverton-Holt in discrete time
-      \item MaxEnt of some sort on discrete levels
       \item Ricker, chaotic
+      \item Representation of logistic or chaotic with MaxEnt distributions for transfer among discrete levels
+    \end{enumerate}
+    \item State representation for the house population
+    \begin{enumerate}
+      \item Binary---Infected or not infected.
+      \item Multiple discrete levels---Low, medium, high
+      \item Continuous
     \end{enumerate}
   \end{enumerate}
-  \item Three kinds of dispersal from the house.
+  \item Three kinds of dispersal mechanisms from the house.
     \begin{enumerate}
     \item A dispersal model for insects determines a transmission rate
 to neighboring houses.
@@ -86,12 +83,53 @@ past the initial hazard of failure to infest.
 \end{enumerate}
 
 
-\section{Current Continuous Time Stochastic Model}
-There are two different models currently in use by the group,
-both of which treat houses (any dwelling) as infecting other
-houses.
-One conserves the rate at which vectors leave the house
-and the other does not.
+\section{Continuous-time Discrete Space Models}
+A model which explicitly includes insects has a slightly
+different meaning from one which represents house-to-house
+transmission.
+
+Define a bug model, where the state of a house is defined
+by how many bug tokens are at the house. Zero bugs is uninfected.
+Movement from one house to another moves a bug. Bugs multiply
+at a house and may die off stochastically.
+
+How does a house-to-house infection model compare with a bug
+model? A house can be in a susceptible state or an infected
+state. For this model, infection represents the ability to
+infect another house. Is a house infected when the first bug
+arrives? It seems more reasonable to assign a house an
+infected state when it has passed the likelihood of stochastic
+die-off.
+
+In this second model, the infection transition, where one
+house infects another, represents not only movement
+of the bug but the likelihood that the bug establishes itself.
+The $I$ state is not an infected state but an infectious state.
+The hazard rate, over time, for an infected house to change
+the status of its neighbor includes not only the time
+for travel of the bug but also time for establishment of the
+new population in the next house.
+
+For a bug model, a bug can move from an infected house to
+another infected house. It just changes the count of bugs.
+For a house-to-house model, the transition of the neighboring
+house to being infectious has already happened.
+Disabling the possibility of infecting a neighboring house
+in a simple SIR model doesn't equate to stopping the bugs
+from moving. It just means the house can't become more infectious
+when it is already infectious.
+
+
+\section{Movement Model}
+There are a few choices to make about a movement model, mostly
+concerning normalization.
+
+One basic question is what the two rates of movement represent.
+Is there a farther movement that is mostly human-mediated 
+and a local movement that is mostly insect-mediated?
+Or is a significant portion of local movement human-mediated,
+so that the hop represents a sum of skipping plus a raw hop rate?
+
 
 \subsection{Conservation in English}
 The state of both models is houses on a landscape, where
