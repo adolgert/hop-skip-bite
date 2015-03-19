@@ -28,14 +28,17 @@ ALLFILES=simple_hazard.cpp simple_hazard.hpp main.cpp spatial_process.hpp Makefi
 all: simple_hazard hsb_version.hpp
 .PHONY: all
 
-simple_hazard: simple_hazard.o main.o
-	$(CXX) $(OPT) -o simple_hazard simple_hazard.o main.o $(LIBS)
+simple_hazard: simple_hazard.o main.o bugs.o
+	$(CXX) $(OPT) -o simple_hazard simple_hazard.o bugs.o main.o $(LIBS)
 
 main.o: main.cpp simple_hazard.hpp
 	$(CXX) -fPIC $(INCLUDES) $(OPT) main.cpp -c -o main.o
 
 simple_hazard.o: simple_hazard.cpp simple_hazard.hpp spatial_process.hpp
 	$(CXX) $(OPT) -fPIC $(INCLUDES) -c simple_hazard.cpp -o simple_hazard.o
+
+bugs.o: bugs.cpp bugs.hpp spatial_process.hpp
+	$(CXX) $(OPT) -fPIC $(INCLUDES) -c bugs.cpp -o bugs.o
 
 hsb_version.hpp:
 	python getgit.py
