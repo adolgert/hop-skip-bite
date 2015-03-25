@@ -1,0 +1,11 @@
+Package: hopskip
+Type: Package
+Title: Discrete stochastic simulation in continuous time of spatial infestation.
+Version: 1.0
+Date: 2015-03-23
+Author: Drew Dolgert
+Maintainer: Andrew Dolgert <adolgert@cornell.edu>
+Description: Simulates spread of insect infestation across a city.
+License: GPL (>= 2)
+Imports: Rcpp (>= 0.11.5)
+LinkingTo: Rcpp
