@@ -224,11 +224,12 @@ using SIRGSPN=
     ExplicitTransitions<SIRPlace, SIRTKey, Local, RandGen, WithParams>;
 
 
-void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
-    RandGen& rng) {
+void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
+      double cutoff, RandGen& rng) {
     using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
+    int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
-    for (int64_t pcreate_idx=0; pcreate_idx<point.size(); ++pcreate_idx) {
+    for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
       int64_t house=0;
       bg.AddPlace( {pcreate_idx, house}, 0);
       int64_t cryptic=1;
@@ -237,10 +238,8 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
       bg.AddPlace( {pcreate_idx, notified}, 0);
     }
 
-    for (int64_t source_idx=0; source_idx<point.size(); ++source_idx) {
+    for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
         auto source=SIRPlace{source_idx, 0};
-        double source_x=point[source_idx][0];
-        double source_y=point[source_idx][1];
 
         bg.AddTransition({source_idx, source_idx, 5},
           {Edge{source, -1}, Edge{source, 1}},
@@ -251,11 +250,9 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
           std::unique_ptr<SIRTransition>(new Death()));
 
 
-        for (int64_t target_idx=0; target_idx<point.size(); ++target_idx) {
+        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
             auto target=SIRPlace{target_idx, 0};
-            double target_x=point[target_idx][0];
-            double target_y=point[target_idx][1];
-            if (pow(source_x-target_x, 2) + pow(source_y-target_y, 2)<0.09) {
+            if (pairwise[source_idx+cnt*target_idx]<cutoff)) {
                 bg.AddTransition({source_idx, target_idx, 1},
                     {Edge{source, -1}, Edge{target, 1}},
                     std::unique_ptr<SIRTransition>(new Move0()));
@@ -279,8 +276,9 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
 template<typename GSPN, typename SIRState>
 struct SIROutput {
  public:
-  SIROutput(const GSPN& gspn, int64_t individual_cnt)
-  : gspn_(gspn), individual_cnt_(individual_cnt) {}
+  SIROutput(const GSPN& gspn, int64_t individual_cnt,
+    std::shared_ptr<TrajectoryObserver> observer)
+  : gspn_(gspn), individual_cnt_(individual_cnt), observer_(observer) {}
 
   bool operator()(const SIRState& state) {
     double now=state.CurrentTime();
@@ -291,7 +289,8 @@ struct SIROutput {
           auto target_house=gspn_.PlaceVertex({transition.j, 0});
           if (Length<0>(state.marking, target_house)==1) {
             // infection event.
-            events_.push_back(std::make_tuple(now, transition.j, 0));
+            observer_->event(state.CurrentTime(), 1, transition.j,
+              transition.i);
           } else {
             // ignore infection of already infected
           }
@@ -303,7 +302,7 @@ struct SIROutput {
           auto perish_house=gspn_.PlaceVertex({transition.i, 0});
           if (Length<0>(state.marking, perish_house)==0) {
             // extinction event.
-            events_.push_back(std::make_tuple(now, transition.i, 1));
+            observer_->event(state.CurrentTime(), 4, transition.i, 0);
           } else {
             // ignore death of an individual if not last one.
           }
@@ -312,7 +311,7 @@ struct SIROutput {
                 
       case 3:
         // notification event
-        events_.push_back(std::make_tuple(now, transition.i, 2));
+        observer_->event(state.CurrentTime(), 3, transition.i, 0);
         break;
 
       default:
@@ -328,27 +327,29 @@ struct SIROutput {
  private:
   const GSPN& gspn_;
   int64_t individual_cnt_;
-  std::vector<std::tuple<double, int64_t, int64_t>> events_;
+  std::shared_ptr<TrajectoryObserver> observer_;
 };
 
 
 
-int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
+int64_t SIR_run(std::map<std::string, boost::any> params,
+    const std::vector<double>& pairwise_distance,
+    std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
-
-  auto points=complete_spatial_randomness({0, 1, 0, 1}, individual_cnt, rng);
 
   int64_t place_cnt=3*individual_cnt;
   int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
   SIRGSPN gspn(place_cnt+transition_cnt);
-  BuildSystem(gspn, points, rng);
+  double cutoff=boost::any_cast<double>(params["cutoff"]);
+  BuildSystem(gspn, pairwise_distance, cutoff, rng);
 
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
 
   SIRState state;
 
+  try {
   state.user.params[Parameter::birth]=boost::any_cast<double>(params["birth"]);
   state.user.params[Parameter::death]=boost::any_cast<double>(params["death"]);
   state.user.params[Parameter::carrying]=
@@ -356,6 +357,9 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   state.user.params[Parameter::move0]=boost::any_cast<double>(params["move0"]);
   state.user.params[Parameter::move1]=boost::any_cast<double>(params["move1"]);
   state.user.params[Parameter::gamma]=boost::any_cast<double>(params["gamma"]);
+  } catch (boost::bad_any_cast& e) {
+    BOOST_LOG_TRIVIAL(error) << "Bad any_cast in bugs::SIR_Run";
+  }
 
   int64_t initial_bug_count=boost::any_cast<int64_t>(params["initial_bug_cnt"]);
 
@@ -372,7 +376,8 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   using Dynamics=StochasticDynamics<SIRGSPN,SIRState,RandGen>;
   Dynamics dynamics(gspn, {&competing});
 
-  SIROutput<SIRGSPN,SIRState> output_function(gspn, individual_cnt);
+  SIROutput<SIRGSPN,SIRState> output_function(gspn, individual_cnt,
+    observer);
 
   dynamics.Initialize(&state, &rng);
 

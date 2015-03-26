@@ -60,3 +60,49 @@ DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
   return DataFrame::create(Named("times")=when,
       Named("event")=what, Named("who")=who, Named("actor")=who2);
 }
+
+
+
+// [[Rcpp::export]]
+DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS) {
+  afidd::LogInit("error");
+
+  NumericVector pairwise(pairwise_distanceS);
+  std::vector<double> distance(pairwise.begin(), pairwise.end());
+
+  List parameters(parametersS);
+  std::map<std::string, boost::any> params;
+  for (auto iname : std::vector<std::string>{"individual_cnt", "seed",
+      "initial_bug_cnt"}) {
+    try {
+      params[iname]=int64_t{as<int>(parameters[iname])};
+    } catch (std::exception& e) {
+      BOOST_LOG_TRIVIAL(error) << "Could not cast "<<iname<<
+        " to an integer";
+      throw;
+    }
+  }
+  for (auto dname : std::vector<std::string>{"birth", "death", "carrying",
+      "move0", "move1", "gamma", "cutoff"}) {
+    try {
+      params[dname]=double{as<double>(parameters[dname])};
+    } catch (std::exception& e) {
+      BOOST_LOG_TRIVIAL(error) << "Could not cast "<<dname<<" to a double";
+      throw;
+    }
+  }
+
+  auto observer=std::make_shared<SIRObserver>();
+
+  int64_t rand_seed=boost::any_cast<int64_t>(params["seed"]);
+  RandGen rng(rand_seed);
+  hsb::bugs::SIR_run(params, distance, observer, rng);
+
+  NumericVector when(observer->when_.begin(), observer->when_.end());
+  IntegerVector what(observer->what_.begin(), observer->what_.end());
+  IntegerVector who(observer->who_.begin(), observer->who_.end());
+  IntegerVector who2(observer->who2_.begin(), observer->who2_.end());
+
+  return DataFrame::create(Named("times")=when,
+      Named("event")=what, Named("who")=who, Named("actor")=who2);
+}

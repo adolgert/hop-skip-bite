@@ -5,3 +5,7 @@ simple_hazard <- function(pairwise_distanceS, parametersS) {
     .Call('hopskip_simple_hazard', PACKAGE = 'hopskip', pairwise_distanceS, parametersS)
 }
 
+bugs <- function(pairwise_distanceS, parametersS) {
+    .Call('hopskip_bugs', PACKAGE = 'hopskip', pairwise_distanceS, parametersS)
+}
+

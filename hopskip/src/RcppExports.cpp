@@ -17,3 +17,15 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// bugs
+DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS);
+RcppExport SEXP hopskip_bugs(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
+    __result = Rcpp::wrap(bugs(pairwise_distanceS, parametersS));
+    return __result;
+END_RCPP
+}
