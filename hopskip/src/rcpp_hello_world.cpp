@@ -3,6 +3,7 @@
 #include "simple_hazard.hpp"
 #include "bugs.hpp"
 #include "rng.hpp"
+#include "smv.hpp"
 
 
 using namespace Rcpp;
@@ -30,6 +31,8 @@ class SIRObserver : public hsb::TrajectoryObserver {
 
 // [[Rcpp::export]]
 DataFrame rcpp_hello_world(SEXP pairwise_distanceS, SEXP parametersS) {
+  afidd::LogInit("error");
+
   NumericVector pairwise_distance(pairwise_distanceS);
   List parameters(parametersS);
 
