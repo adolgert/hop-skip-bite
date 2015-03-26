@@ -30,25 +30,27 @@ class SIRObserver : public hsb::TrajectoryObserver {
 
 
 // [[Rcpp::export]]
-DataFrame rcpp_hello_world(SEXP pairwise_distanceS, SEXP parametersS) {
+DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
   afidd::LogInit("error");
 
-  NumericVector pairwise_distance(pairwise_distanceS);
-  List parameters(parametersS);
+  NumericVector pairwise(pairwise_distanceS);
+  std::vector<double> distance(pairwise.begin(), pairwise.end());
 
+  List parameters(parametersS);
   std::map<std::string, boost::any> params;
   params["individual_cnt"]=int64_t{as<int>(parameters["individual_cnt"])};
   params["beta0"]=double{as<double>(parameters["beta0"])};
   params["beta1"]=double{as<double>(parameters["beta1"])};
   params["beta2"]=double{as<double>(parameters["beta2"])};
   params["gamma"]=double{as<double>(parameters["gamma"])};
+  params["cutoff"]=double{as<double>(parameters["cutoff"])};
   int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
   params["seed"]=rand_seed;
 
   auto observer=std::make_shared<SIRObserver>();
 
   RandGen rng(rand_seed);
-  hsb::simple_hazard::SIR_run(params, observer, rng);
+  hsb::simple_hazard::SIR_run(params, distance, observer, rng);
 
   NumericVector when(observer->when_.begin(), observer->when_.end());
   IntegerVector what(observer->what_.begin(), observer->what_.end());

@@ -14,6 +14,7 @@ namespace hsb {
 namespace simple_hazard {
 
 int64_t SIR_run(std::map<std::string, boost::any> params,
+  const std::vector<double>& pairwise_distance,
   std::shared_ptr<TrajectoryObserver> observer, RandGen& rng);
 
 }

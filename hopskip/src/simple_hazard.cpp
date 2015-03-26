@@ -1,5 +1,6 @@
 #include <iostream>
 #include <map>
+#include <cmath>
 #include <string>
 #include <vector>
 #include "boost/any.hpp"
@@ -170,26 +171,23 @@ using SIRGSPN=
     ExplicitTransitions<SIRPlace, SIRTKey, Local, RandGen, WithParams>;
 
 
-void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
-    RandGen& rng) {
+void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
+      double cutoff, RandGen& rng) {
     using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
+    int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
-    for (int64_t pcreate_idx=0; pcreate_idx<point.size(); ++pcreate_idx) {
+    for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
         for (int64_t dcreate_idx=0; dcreate_idx<3; ++dcreate_idx) {
             bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
         }
     }
 
-    for (int64_t source_idx=0; source_idx<point.size(); ++source_idx) {
+    for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
         auto source=SIRPlace{source_idx, 1};
-        double source_x=point[source_idx][0];
-        double source_y=point[source_idx][1];
-        for (int64_t target_idx=0; target_idx<point.size(); ++target_idx) {
+        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
             auto susceptible=SIRPlace{target_idx, 0};
             auto infected=SIRPlace{target_idx, 1};
-            double target_x=point[target_idx][0];
-            double target_y=point[target_idx][1];
-            if (pow(source_x-target_x, 2) + pow(source_y-target_y, 2)<0.09) {
+            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
                 bg.AddTransition({source_idx, target_idx, 1},
                     {Edge{source, -1}, Edge{susceptible, -1},
                     Edge{infected, 1}},
@@ -207,12 +205,10 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
           std::unique_ptr<SIRTransition>(new Notify()));
 
         auto nsource=SIRPlace{source_idx, 2};
-        for (int64_t target_idx=0; target_idx<point.size(); ++target_idx) {
+        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
             auto susceptible=SIRPlace{target_idx, 0};
             auto infected=SIRPlace{target_idx, 1};
-            double target_x=point[target_idx][0];
-            double target_y=point[target_idx][1];
-            if (pow(source_x-target_x, 2) + pow(source_y-target_y,2)<0.09) {
+            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
                 bg.AddTransition({source_idx, target_idx, 2},
                     {Edge{nsource, -1}, Edge{susceptible, -1},
                     Edge{infected, 1}},
@@ -292,16 +288,16 @@ struct SIROutput {
 
 
 int64_t SIR_run(std::map<std::string, boost::any> params,
+    const std::vector<double>& pairwise_distance,
     std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 
-  auto points=complete_spatial_randomness({0, 1, 0, 1}, individual_cnt, rng);
-
   int64_t place_cnt=3*individual_cnt;
   int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
   SIRGSPN gspn(place_cnt+transition_cnt);
-  BuildSystem(gspn, points, rng);
+  double cutoff=boost::any_cast<double>(params["cutoff"]);
+  BuildSystem(gspn, pairwise_distance, cutoff, rng);
 
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
