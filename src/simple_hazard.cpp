@@ -232,8 +232,9 @@ void BuildSystem(SIRGSPN& bg, std::vector<std::array<double,2>>& point,
 template<typename GSPN, typename SIRState>
 struct SIROutput {
  public:
-  SIROutput(const GSPN& gspn, int64_t individual_cnt)
-  : gspn_(gspn), individual_cnt_(individual_cnt),
+  SIROutput(const GSPN& gspn, int64_t individual_cnt,
+      std::shared_ptr<TrajectoryObserver> observer)
+  : gspn_(gspn), individual_cnt_(individual_cnt), observer_(observer)
   sir_(individual_cnt, std::array<int64_t,3>{0, -1, -1}) {}
 
   bool operator()(const SIRState& state) {
@@ -241,6 +242,8 @@ struct SIROutput {
     size_t time_idx=times_.size();
 
     auto transition=gspn_.VertexTransition(state.last_transition);
+    observer_->event(state.CurrentTime(), transition.kind, transition.j,
+      transition.i);
     switch (transition.kind) {
       case 0:
         std::get<1>(sir_[transition.j])=time_idx;
@@ -268,6 +271,7 @@ struct SIROutput {
     for (int64_t ind_idx=0; ind_idx<individual_cnt_; ++ind_idx) {
       int64_t inf_place=gspn_.PlaceVertex({ind_idx, 1});
       if (Length<0>(state.marking, inf_place)>0) {
+        observer_->event(0, 1, ind_idx, 0);
         std::get<0>(sir_[ind_idx])=-1;
         std::get<1>(sir_[ind_idx])=0;
       }
@@ -281,11 +285,13 @@ struct SIROutput {
   int64_t individual_cnt_;
   std::vector<double> times_;
   std::vector<std::array<int64_t,3>> sir_;
+  std::shared_ptr<TrajectoryObserver> observer_;
 };
 
 
 
-int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
+int64_t SIR_run(std::map<std::string, boost::any> params,
+    std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 
@@ -322,7 +328,7 @@ int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng) {
   using Dynamics=StochasticDynamics<SIRGSPN,SIRState,RandGen>;
   Dynamics dynamics(gspn, {&competing});
 
-  SIROutput<SIRGSPN,SIRState> output_function(gspn, individual_cnt);
+  SIROutput<SIRGSPN,SIRState> output_function(gspn, observer, individual_cnt);
 
   dynamics.Initialize(&state, &rng);
 

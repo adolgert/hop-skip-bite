@@ -6,12 +6,14 @@
 using namespace Rcpp;
 
 // rcpp_hello_world
-List rcpp_hello_world();
-RcppExport SEXP hopskip_rcpp_hello_world() {
+DataFrame rcpp_hello_world(SEXP pairwise_distanceS, SEXP parametersS);
+RcppExport SEXP hopskip_rcpp_hello_world(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
-    __result = Rcpp::wrap(rcpp_hello_world());
+    Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
+    __result = Rcpp::wrap(rcpp_hello_world(pairwise_distanceS, parametersS));
     return __result;
 END_RCPP
 }

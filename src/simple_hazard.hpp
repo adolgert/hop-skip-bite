@@ -5,13 +5,15 @@
 #include <string>
 #include "boost/any.hpp"
 #include "rng.hpp"
+#include "trajectory_observer.hpp"
 
 
 
 namespace hsb {
 namespace simple_hazard {
 
-int64_t SIR_run(std::map<std::string, boost::any> params, RandGen& rng);
+int64_t SIR_run(std::map<std::string, boost::any> params,
+  std::shared_ptr<TrajectoryObserver> observer, RandGen& rng);
 
 }
 }

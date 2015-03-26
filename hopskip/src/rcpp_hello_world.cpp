@@ -4,26 +4,54 @@
 #include "bugs.hpp"
 #include "rng.hpp"
 
+
 using namespace Rcpp;
 using namespace hsb;
 
+
+namespace hsb {
+class SIRObserver : public hsb::TrajectoryObserver {
+ public:
+  virtual void event(double when, int what, int64_t who, int64_t who2) {
+    when_.push_back(when);
+    what_.push_back(what);
+    who_.push_back(who);
+    who2_.push_back(who2);
+  }
+
+  std::vector<double> when_;
+  std::vector<int> what_;
+  std::vector<int64_t> who_;
+  std::vector<int64_t> who2_;
+};
+}
+
+
+
 // [[Rcpp::export]]
-List rcpp_hello_world() {
-  boost::any holdit;
-  CharacterVector x = CharacterVector::create( "foo", "bar" )  ;
-  NumericVector y   = NumericVector::create( 0.0, 1.0 ) ;
-  List z            = List::create( x, y ) ;
+DataFrame rcpp_hello_world(SEXP pairwise_distanceS, SEXP parametersS) {
+  NumericVector pairwise_distance(pairwise_distanceS);
+  List parameters(parametersS);
 
   std::map<std::string, boost::any> params;
-  params["individual_cnt"]=int64_t{10};
-  params["beta0"]=double{0.1};
-  params["beta1"]=double{0.1};
-  params["beta2"]=double{0.1};
-  params["gamma"]=double{0.1};
+  params["individual_cnt"]=int64_t{as<int>(parameters["individual_cnt"])};
+  params["beta0"]=double{as<double>(parameters["beta0"])};
+  params["beta1"]=double{as<double>(parameters["beta1"])};
+  params["beta2"]=double{as<double>(parameters["beta2"])};
+  params["gamma"]=double{as<double>(parameters["gamma"])};
+  int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
+  params["seed"]=rand_seed;
 
-  int64_t rand_seed=33333;
+  auto observer=std::make_shared<SIRObserver>();
+
   RandGen rng(rand_seed);
-  hsb::simple_hazard::SIR_run(params, rng);
+  hsb::simple_hazard::SIR_run(params, observer, rng);
 
-  return z ;
+  NumericVector when(observer->when_.begin(), observer->when_.end());
+  IntegerVector what(observer->what_.begin(), observer->what_.end());
+  IntegerVector who(observer->who_.begin(), observer->who_.end());
+  IntegerVector who2(observer->who2_.begin(), observer->who2_.end());
+
+  return DataFrame::create(Named("times")=when,
+      Named("event")=what, Named("who")=who, Named("actor")=who2);
 }
