@@ -11,7 +11,8 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([src/Makevars])
 
 # Checks for programs.
-AC_PROG_CXX
+R_CXX_CMD=`R CMD CONFIG CXX1X`
+AC_PROG_CXX([$R_CXX_CMD])
 AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
 
 # Checks for libraries.
@@ -27,13 +28,13 @@ AX_BOOST_SYSTEM
 # Checks for header files.
 
 # Checks for typedefs, structures, and compiler characteristics.
-AC_CHECK_HEADER_STDBOOL
-AC_C_INLINE
-AC_TYPE_INT64_T
-AC_TYPE_SIZE_T
+#AC_CHECK_HEADER_STDBOOL
+#AC_C_INLINE
+#AC_TYPE_INT64_T
+#AC_TYPE_SIZE_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS([pow])
+#AC_CHECK_FUNCS([pow])
 
 
 
