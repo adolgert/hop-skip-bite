@@ -374,4 +374,95 @@ inference is $P(T_r-T_i|n_o)$.
 Oh, look, it's Bayes' rule. This will give us the pdf to use
 in a likelihood for MCMC.
 
+
+\section{Excess Growth}
+If we assume logistic growth for the count of bugs in a house
+and make that a deterministic number, then a theoretically
+simple hazard rate for bugs leaving a house is excess growth,
+which is the difference between exponential growth and logistic growth.
+
+Exponential growth is
+\begin{equation}
+  \frac{dN'}{dt}=rN,
+\end{equation}
+where $r$ is the growth rate and $N$ is the bug count.
+The $N$ on the right is not $N'$. It comes instead from logistic
+growth. The hazard for bugs leaving is the difference in the
+rate of growth for each, or
+\begin{equation}
+  \frac{d(N'-N)}{dt}=rN-r\left(1-\frac{N}{K}\right)N=N^2/K
+\end{equation}
+Writing out $N$ for logistic growth, this hazard is
+\begin{equation}
+  \lambda(t)\equiv\frac{d(N'-N)}{dt}=N_0^2K\left[
+    \frac{e^{rt}}{K+N_0(e^{rt}-1)}\right]^2.
+\end{equation}
+The time $t=T-T_e$ is a time since enabling.
+
+Stochastic sampling requires an integral of the hazard
+and the inverse of the integral of the hazard. Are these possible
+in closed form?
+
+We want to integrate this hazard. Let's make a couple of things simpler
+with $rt\equiv t'$ and $K=N_0K'$.
+\begin{equation}
+  (N_0K'/r)\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]dt'.
+\end{equation}
+Because time is always greater than or equal to zero, and carrying
+capacity is positive, the denumerator is greater than zero.
+The time appears only in an exponential, so we can get rid of
+that, too, with the substitution, $u=e^{t'}-1$ so that
+$du=udt'$. The integral is now
+\begin{equation}
+  \frac{N_0 K'}{r}\frac{u}{(K'+u)^2}du.
+\end{equation}
+The constant can go using $u=Ky$ so that $du=Kdy$ to yield
+\begin{equation}
+  \frac{N_0 K'}{r}\frac{y}{(y+1)^2}dy.
+\end{equation}
+Let's forget the term in front until we need it.
+Sometimes these are easier when split, so
+this gets integrated by parts, using two fractions
+\begin{equation}
+ \frac{y}{(y+1)^2}=\frac{A}{(y+1)^2} + \frac{B}{y+1}
+\end{equation}
+Puttering says the answer is
+\begin{equation}
+ \frac{y}{(y+1)^2}=\frac{-1}{(y+1)^2} + \frac{1}{y+1}.
+\end{equation}
+This integrates to
+\begin{equation}
+  \left.-\frac{y}{y+1} + \ln(y+1)\right|_{y_0}^{y_1}.
+\end{equation}
+Back to the beginning, $y=u/K'$, so $y=(e^{t'}-1)/K'$
+so $y=(N_0/K)(e^{rt}-1)$
+
+In code, the two calculations are integrated hazard and
+its inverse. For integrated hazard, convert to $y$,
+bring back the lost $N_0K'/r$ term in front, and then
+\begin{equation}
+  \int_{y_0}^{y_1}\lambda(t)dt=\frac{K}{r}\left[
+    \ln\left(\frac{y_1+1}{y_0+1}\right)-\frac{y_1-y_0}{(y_0+1)(y_1+1)}
+    \right].
+\end{equation}
+The implicit integral is
+\begin{equation}
+  x_a=\int_{T_0}^{T_1}\lambda(s)ds.
+\end{equation}
+Again, convert from $T$ to $y$, and solve, this time numerically,
+\begin{equation}
+  \frac{x_a r}{K}+\ln(y_0+1)-\frac{y_0}{y_0+1}=\ln(y_1+1)-\frac{y_1}{y_1+1}.
+\end{equation}
+The left-hand side will be known, and the right-hand side is the unknown.
+Once $y_1$ is found, convert to a time using $t=(1/r)\ln(1+yK/N_0)$.
+The Brent solver needs lower and upper bounds for its solution. The lower
+bound would be $y_0$. The upper bound we might take from
+labeling the left-hand side $x_a'$ and raising both sides
+by $e$ to get
+\begin{equation}
+ e^{x_a'}=(y_1+1)e^{-y_1/(y_1+1)}.
+\end{equation}
+The right-hand side's exponential is between 1 and $1/e$, so the maximum
+value of $y_1$ is $y_1=\exp(x_a' + 1)-1$.
+
 \end{document}
