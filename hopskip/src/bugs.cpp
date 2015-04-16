@@ -6,6 +6,7 @@
 #include "smv.hpp"
 #include "spatial_process.hpp"
 #include "bugs.hpp"
+#include "excess_growth.hpp"
 
 namespace smv=afidd::smv;
 using namespace smv;
@@ -282,7 +283,6 @@ struct SIROutput {
     infected_cnt_(0) {}
 
   bool operator()(const SIRState& state) {
-    double now=state.CurrentTime();
     auto transition=gspn_.VertexTransition(state.last_transition);
     switch (transition.kind) {
       case 1: // move
