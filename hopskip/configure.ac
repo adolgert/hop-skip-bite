@@ -16,6 +16,10 @@ AC_PROG_CXX([$R_CXX_CMD])
 AX_CXX_COMPILE_STDCXX_11([noext], [mandatory])
 
 # Checks for libraries.
+AC_CHECK_LIB([m],[cos])
+AC_CHECK_LIB([gslcblas],[cblas_dgemm])
+AC_CHECK_LIB([gsl],[gsl_blas_dgemm])
+
 AX_PTHREAD
 AX_BOOST_BASE([1.55])
 AX_BOOST_CHRONO

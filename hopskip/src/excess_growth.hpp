@@ -43,10 +43,10 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   ExcessGrowth(double N0, double K, double r, double te)
     : params_(new ExcessGrowthParams), te_(te),
       N0_(N0), K_(K), r_(r),
-      solver_type(gsl_root_fsolver_brent),
+      solver_type_(gsl_root_fsolver_brent),
       excess_function_(new gsl_function()),
       solver_(gsl_root_fsolver_alloc(solver_type_)) {
-    excess_function_->function=&ExcessGrowthHazard;
+    excess_function_->function=&ExcessGrowthFunction;
     excess_function_->params=params_.get();
   }
   virtual ~ExcessGrowth() {}
@@ -72,7 +72,6 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
 
   virtual double ImplicitHazardIntegral(double xa, double t0) const {
     double resolution=1e9;
-    double bounds_err=1e-13;
     int iter_max=1000;
     double y0=y_of_t(t0-te_);
     params_->xa=xa*r_/K_ + std::log(y0+1) - y0/(y0+1);
@@ -86,7 +85,7 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     int iter=0;
     double y1=0;
     while (test_status==GSL_CONTINUE && iter<iter_max) {
-      int status=gsl_root_fsolver_iterate(solver_);
+      int status=gsl_root_fsolver_iterate(solver_.get());
       switch (status) {
         case 0:
           break;
@@ -101,9 +100,9 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
         break;
       }
       assert(status==0);
-      y1=gsl_root_fsolver_root(solver_);
-      double t_low=gsl_root_fsolver_x_lower(solver_);
-      double t_high=gsl_root_fsolver_x_upper(solver_);
+      y1=gsl_root_fsolver_root(solver_.get());
+      double t_low=gsl_root_fsolver_x_lower(solver_.get());
+      double t_high=gsl_root_fsolver_x_upper(solver_.get());
       test_status=gsl_root_test_interval(t_low, t_high, resolution, 0);
       ++iter;
     }
@@ -117,11 +116,11 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   }
 
  private:
-  double y_of_t(double t) { return (N0_/K_)*(std::exp(r*t)-1); }
-  double t_of_y(double y) { return std::log(1+y*K_/N0_)/r_; }
+  inline double y_of_t(double t) const { return (N0_/K_)*(std::exp(r_*t)-1); }
+  inline double t_of_y(double y) const { return std::log(1+y*K_/N0_)/r_; }
 };
 
-double TestExcessGrowthDistribution(double b1);
+int TestExcessGrowthDistribution();
 
 } // namespace hsb
 

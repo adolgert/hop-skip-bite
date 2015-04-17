@@ -9,3 +9,7 @@ bugs <- function(pairwise_distanceS, parametersS) {
     .Call('hopskip_bugs', PACKAGE = 'hopskip', pairwise_distanceS, parametersS)
 }
 
+TestExcessGrowthDistribution <- function() {
+    .Call('hopskip_TestExcessGrowthDistribution', PACKAGE = 'hopskip')
+}
+

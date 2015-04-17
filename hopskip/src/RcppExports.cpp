@@ -29,3 +29,13 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// TestExcessGrowthDistribution
+SEXP TestExcessGrowthDistribution();
+RcppExport SEXP hopskip_TestExcessGrowthDistribution() {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    __result = Rcpp::wrap(TestExcessGrowthDistribution());
+    return __result;
+END_RCPP
+}

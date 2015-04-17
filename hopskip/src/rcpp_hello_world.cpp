@@ -2,6 +2,7 @@
 #include "Rcpp.h"
 #include "simple_hazard.hpp"
 #include "bugs.hpp"
+#include "excess_growth.hpp"
 #include "rng.hpp"
 #include "smv.hpp"
 
@@ -105,4 +106,9 @@ DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS) {
 
   return DataFrame::create(Named("times")=when,
       Named("event")=what, Named("who")=who, Named("actor")=who2);
+}
+
+// [[Rcpp::export]]
+SEXP TestExcessGrowthDistribution() {
+  return Rcpp::wrap(hsb::TestExcessGrowthDistribution());
 }

@@ -7,6 +7,7 @@
 #include "smv.hpp"
 #include "spatial_process.hpp"
 #include "simple_hazard.hpp"
+#include "excess_growth.hpp"
 
 namespace smv=afidd::smv;
 using namespace smv;
@@ -14,7 +15,8 @@ using namespace smv;
 namespace hsb {
 namespace simple_hazard {
 
-enum class Parameter : int { none, beta0, beta1, beta2, gamma };
+enum class Parameter : int { none, beta0, beta1, beta2, gamma,
+  N0, carrying, growthrate };
 
 // A token is an instance of this class.
 struct AnonymousToken {
@@ -132,6 +134,35 @@ class Infect1 : public SIRTransition {
         if (S>0 && I>0) {
             double rate=s.params.at(Parameter::beta1);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
+        } else {
+            return {false, std::unique_ptr<Dist>(nullptr)};
+        }
+    }
+
+    virtual void Fire(UserState& s, Local& lm, double t0,
+        RandGen& rng) override {
+        lm.template Move<0,0>(1, 2, 1);
+    }
+};
+
+
+// Infect a hop-distance away with one hazard.
+class ExcessInfect : public SIRTransition {
+  public:
+    ExcessInfect() {}
+
+    virtual std::pair<bool, std::unique_ptr<Dist>>
+    Enabled(const UserState& s, const Local& lm,
+        double te, double t0, RandGen& rng) override {
+        int64_t I=lm.template Length<0>(0);
+        int64_t S=lm.template Length<0>(1);
+        if (S>0 && I>0) {
+            return {true, std::unique_ptr<ExcessGrowth<RandGen>>(
+              new ExcessGrowth<RandGen>(
+                s.params.at(Parameter::N0),
+                s.params.at(Parameter::carrying),
+                s.params.at(Parameter::growthrate),
+                te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
         }

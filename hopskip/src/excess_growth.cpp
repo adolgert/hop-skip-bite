@@ -1,4 +1,5 @@
 #include "excess_growth.hpp"
+#include "rng.hpp"
 
 namespace hsb {
 
@@ -9,7 +10,9 @@ double ExcessGrowthFunction(double y, void* params) {
 }
 
 
-double TestExcessGrowthDistribution(double b1) {
+int TestExcessGrowthDistribution() {
+  auto rng=RandGen(33333);
+  int error_cnt=0;
   double eps=1e-7;
   for (int tidx=0; tidx<3; ++tidx) {
     double te=0.7*tidx;
@@ -19,7 +22,7 @@ double TestExcessGrowthDistribution(double b1) {
         double K=kidx*100;
         for (int ridx=0; ridx<3; ++ridx) {
           double r=std::pow(10, -1-ridx);
-          auto dist=ExcessGrowth(N0, K, r, te);
+          ExcessGrowth<RandGen> dist(N0, K, r, te);
 
           for (int t0idx=0; t0idx<5; ++t0idx) {
             double t0=te+t0idx*0.1;
@@ -29,9 +32,10 @@ double TestExcessGrowthDistribution(double b1) {
               double xa=dist.HazardIntegral(t0, t1);
               double t1p=dist.ImplicitHazardIntegral(xa, t0);
               if (std::abs(t1p-t1)>eps) {
+                ++error_cnt;
                 BOOST_LOG_TRIVIAL(error) << "mismatch " <<
                   N0 << " " << K << " " << r << " " << te << " " <<
-                  t0 << " " << t1 << " " << xa << " " t1p << std::endl;
+                  t0 << " " << t1 << " " << xa << " " << t1p << std::endl;
               }
             }
           }
@@ -39,6 +43,7 @@ double TestExcessGrowthDistribution(double b1) {
       }
     }
   }
+  return error_cnt;
 }
 
 } // namespace hsb

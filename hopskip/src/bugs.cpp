@@ -6,7 +6,6 @@
 #include "smv.hpp"
 #include "spatial_process.hpp"
 #include "bugs.hpp"
-#include "excess_growth.hpp"
 
 namespace smv=afidd::smv;
 using namespace smv;
