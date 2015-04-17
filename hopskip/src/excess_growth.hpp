@@ -33,7 +33,7 @@ template<typename RNG>
 class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   std::unique_ptr<gsl_function> excess_function_;
   std::unique_ptr<ExcessGrowthParams> params_;
-  const gsl_root_fsolver_type* solver_type_;
+  const gsl_root_fsolver_type* solver_type_{gsl_root_fsolver_brent};
   std::unique_ptr<gsl_root_fsolver> solver_;
   double te_;
   double N0_;
@@ -42,10 +42,9 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
  public:
   ExcessGrowth(double N0, double K, double r, double te)
     : params_(new ExcessGrowthParams), te_(te),
-      N0_(N0), K_(K), r_(r),
-      solver_type_(gsl_root_fsolver_brent),
-      excess_function_(new gsl_function()),
-      solver_(gsl_root_fsolver_alloc(solver_type_)) {
+      N0_(N0), K_(K), r_(r) {
+    excess_function_.reset(new gsl_function());
+    solver_.reset(gsl_root_fsolver_alloc(solver_type_));
     excess_function_->function=&ExcessGrowthFunction;
     excess_function_->params=params_.get();
   }
