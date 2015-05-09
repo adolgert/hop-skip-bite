@@ -115,8 +115,8 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   }
 
  private:
-  inline double y_of_t(double t) const { return (N0_/K_)*(std::exp(r_*t)-1); }
-  inline double t_of_y(double y) const { return std::log(1+y*K_/N0_)/r_; }
+  inline double y_of_t(double t) const { return std::exp(r_*t)*N0_/(K_-N0_); }
+  inline double t_of_y(double y) const { return std::log(y*K_/N0_-1)/r_; }
 };
 
 int TestExcessGrowthDistribution();

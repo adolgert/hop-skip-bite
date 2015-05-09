@@ -393,10 +393,13 @@ rate of growth for each, or
   \frac{d(N'-N)}{dt}=rN-r\left(1-\frac{N}{K}\right)N=rN^2/K
 \end{equation}
 Writing out $N$ for logistic growth, this hazard is
-\begin{equation}
-  \lambda(t)\equiv\frac{d(N'-N)}{dt}=rN_0^2K\left[
-    \frac{e^{rt}}{K+N_0(e^{rt}-1)}\right]^2.
-\end{equation}
+\begin{eqnarray}
+  \lambda(t)dt&\equiv & \frac{d(N'-N)}{dt} \\
+  & = & \frac{r}{K}\left[
+  \frac{N_0Ke^{rt}}{K+N_0(e^{rt}-1)}\right]^2dt \\
+  &=&rN_0^2K\left[
+    \frac{e^{rt}}{K+N_0(e^{rt}-1)}\right]^2dt
+\end{eqnarray}
 The time $t=T-T_e$ is a time since enabling.
 
 Stochastic sampling requires an integral of the hazard
@@ -405,64 +408,109 @@ in closed form?
 
 We want to integrate this hazard. Let's make a couple of things simpler
 with $rt\equiv t'$ and $K=N_0K'$.
-\begin{equation}
-  N_0K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]dt'.
-\end{equation}
+\begin{eqnarray}
+  \lambda(t)dt & = & \lambda(t'/r)dt'/r \\
+  &=&rN_0^2K\left[
+    \frac{e^{t'}}{K+N_0(e^{t'}-1)}\right]^2dt'/r \\
+  &=&N_0^2K\left[
+    \frac{e^{t'}}{K+N_0(e^{t'}-1)}\right]^2dt' \\
+  &=&N_0^2(N_0K')\left[
+    \frac{e^{t'}}{N_0K'+N_0(e^{t'}-1)}\right]^2dt' \\
+  &=&N_0^2(N_0K')\frac{1}{N_0}\left[
+    \frac{e^{t'}}{K'+(e^{t'}-1)}\right]^2dt' \\
+  & = & N_0^2K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]^2dt'.
+\end{eqnarray}
 Because time is always greater than or equal to zero, and carrying
 capacity is positive, the denumerator is greater than zero.
-The time appears only in an exponential, so we can get rid of
-that, too, with the substitution, $u=e^{t'}-1$ so that
-$du=udt'$. The integral is now
+The factor $K'$ is greater than one, so we might write the denumerator
+to show that.
 \begin{equation}
-  N_0 K'\frac{u}{(K'+u)^2}du.
+  \lambda(t)dt =N_0^2K'\left[\frac{e^{t'}}{e^{t'}+(K'-1)}\right]^2dt'
 \end{equation}
-The constant can go using $u=Ky$ so that $du=Kdy$ to yield
-\begin{equation}
-  N_0 K'\frac{y}{(y+1)^2}dy.
-\end{equation}
-Let's forget the term in front until we need it.
+Let's make a substitution such that
+\begin{eqnarray}
+  e^{t'}+(K'-1)& = & (u + 1)(K'-1) \\
+  e^{t'} & = & u(K'-1) \\
+  e^{t'}dt' & = & du(K'-1) \\
+  u(K'-1)dt' & = & du(K'-1) \\
+  dt' & = & (1/u)du
+\end{eqnarray}
+Returning to the main equation,
+\begin{eqnarray}
+  \lambda(t)dt & = & N_0^2K'\left[\frac{u(K'-1)}{(u+1)(K'-1)}\right]^2
+      \frac{du}{u} \\
+  & = & N_0^2K'\frac{u}{(u+1)^2}du \\
+\end{eqnarray}
+
 Sometimes these are easier when split, so
 this gets integrated by parts, using two fractions
 \begin{equation}
- \frac{y}{(y+1)^2}=\frac{A}{(y+1)^2} + \frac{B}{y+1}
+ \frac{u}{(u+1)^2}=\frac{A}{(u+1)^2} + \frac{B}{u+1}
 \end{equation}
 Puttering says the answer is
 \begin{equation}
- \frac{y}{(y+1)^2}=\frac{-1}{(y+1)^2} + \frac{1}{y+1}.
+ \frac{u}{(u+1)^2}=\frac{-1}{(u+1)^2} + \frac{1}{u+1}.
 \end{equation}
 This integrates to
 \begin{equation}
-  \left.-\frac{y}{y+1} + \ln(y+1)\right|_{y_0}^{y_1}.
+  \int_{u_0}^{u_1}\frac{u}{(u+1)^2}du=\left.-\frac{u}{u+1} + \ln(u+1)\right|_{u_0}^{u_1}.
 \end{equation}
-Back to the beginning, $y=u/K'$, so $y=(e^{t'}-1)/K'$
-so $y=(N_0/K)(e^{rt}-1)$
-
-In code, the two calculations are integrated hazard and
-its inverse. For integrated hazard, convert to $y$,
-bring back the lost $N_0K'$ term in front, and then
+The integral of the hazard, in terms of $u(t)$ and replacing $N_0K'=K$, is then
 \begin{equation}
-  \int_{y_0}^{y_1}\lambda(t)dt=K\left[
-    \ln\left(\frac{y_1+1}{y_0+1}\right)-\frac{y_1-y_0}{(y_0+1)(y_1+1)}
+  \int_{u_0(t)}^{u_1(t)}\lambda(t)dt=K\left[
+    \ln\left(\frac{u_1+1}{u_0+1}\right)-\frac{u_1-u_0}{(u_0+1)(u_1+1)}
     \right].
 \end{equation}
+Now reverse substitutions:
+\begin{eqnarray}
+  u & = & \frac{e^{t'}}{K'-1} \\
+    & = & \frac{e^{rt}}{K/N_0 - 1} \\
+    & = & \frac{N_0e^{rt}}{K-N_0} \\
+  u\frac{K-N_0}{N_0} & = & e^{rt} \\
+  t & = & \frac{1}{r}\ln\left[\frac{u(K-N_0)}{N_0}\right] \\
+    & = & \frac{1}{r}\ln\left[u((K/N_0)-1)\right] \\
+  u + 1 & = & \frac{N_0e^{rt}+K-N_0}{K-N_0} \\
+        & = & \frac{K + N_0(e^{rt}-1)}{K-N_0} \\
+  \frac{u}{u+1} & = & \frac{N_0e^{rt}}{K + N_0(e^{rt}-1)}
+\end{eqnarray}
+
+
+In code, the two calculations are integrated hazard and
+its inverse.
 The implicit integral is
 \begin{equation}
   x_a=\int_{T_0}^{T_1}\lambda(s)ds.
 \end{equation}
-Again, convert from $T$ to $y$, and solve, this time numerically,
+Again, convert from $T$ to $u$, and solve, this time numerically,
 \begin{equation}
-  \frac{x_a}{K}+\ln(y_0+1)-\frac{y_0}{y_0+1}=\ln(y_1+1)-\frac{y_1}{y_1+1}.
+  \frac{x_a}{K}+\ln(u_0+1)-\frac{u_0}{u_0+1}=\ln(u_1+1)-\frac{u_1}{u_1+1}.
 \end{equation}
 The left-hand side will be known, and the right-hand side is the unknown.
-Once $y_1$ is found, convert to a time using $t=(1/r)\ln(1+yK/N_0)$.
+Once $u_1$ is found, convert to a time using $t=(1/r)\ln(u(K/N_0-1))$.
 The Brent solver needs lower and upper bounds for its solution. The lower
-bound would be $y_0$. The upper bound we might take from
+bound would be $u_0$. The upper bound we might take from
 labeling the left-hand side $x_a'$ and raising both sides
 by $e$ to get
 \begin{equation}
- e^{x_a'}=(y_1+1)e^{-y_1/(y_1+1)}.
+ e^{x_a'}=(u_1+1)e^{-u_1/(u_1+1)}.
 \end{equation}
 The right-hand side's exponential is between 1 and $1/e$, so the maximum
-value of $y_1$ is $y_1=\exp(x_a' + 1)-1$.
+value of $u_1$ is $u_1=\exp(x_a' + 1)-1$.
+
+What happens for solving the inverse integral when the time difference
+is small?
+\begin{eqnarray}
+  \int_{u_0(t)}^{u_1(t)}\lambda(t)dt& =& K\left[
+    \ln\left(\frac{x+u_0+1}{u_0+1}\right)-\frac{x}{(u_0+1)(x+u_0+1)}
+    \right] \\
+  x_a/K & = & \ln\left(1+\frac{x}{u_0+1}\right)-\frac{x}{(u_0+1)(x+u_0+1)} \\
+  & = & \frac{x}{u_0+1}-\frac{x^2}{2(u_0+1)^2}-\frac{x}{(u_0+1)(x+u_0+1)} \\
+  & = & \frac{x(x+p)}{p(x+p)}-\frac{x}{p(x+p)} \\
+  & = & \frac{x^2 +(p-1)x}{p(x+p)} \\
+  (x_a/K)p(x+p) & =&  x^2 +(p-1)x \\
+  0 & = & x^2 + (p-1-px_a/K)x - p^2x_a/K \\
+  x & = & \frac{-(p-1-px_a/K)\pm\sqrt{(p-1-px_a/K)^2+4p^2x_a/K}}{2} \\
+  x & = & \frac{-(u_0-(1+u_0)x_a/K)\pm\sqrt{(u_0-px_a/K)^2+4(1+u_0)^2x_a/K}}{2} \\
+\end{eqnarray}
 
 \end{document}
