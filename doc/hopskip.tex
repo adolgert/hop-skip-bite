@@ -416,16 +416,16 @@ with $rt\equiv t'$ and $K=N_0K'$.
     \frac{e^{t'}}{K+N_0(e^{t'}-1)}\right]^2dt' \\
   &=&N_0^2(N_0K')\left[
     \frac{e^{t'}}{N_0K'+N_0(e^{t'}-1)}\right]^2dt' \\
-  &=&N_0^2(N_0K')\frac{1}{N_0}\left[
+  &=&N_0^2(N_0K')\frac{1}{N_0^2}\left[
     \frac{e^{t'}}{K'+(e^{t'}-1)}\right]^2dt' \\
-  & = & N_0^2K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]^2dt'.
+  & = & N_0K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]^2dt'.
 \end{eqnarray}
 Because time is always greater than or equal to zero, and carrying
 capacity is positive, the denumerator is greater than zero.
 The factor $K'$ is greater than one, so we might write the denumerator
 to show that.
 \begin{equation}
-  \lambda(t)dt =N_0^2K'\left[\frac{e^{t'}}{e^{t'}+(K'-1)}\right]^2dt'
+  \lambda(t)dt =N_0K'\left[\frac{e^{t'}}{e^{t'}+(K'-1)}\right]^2dt'
 \end{equation}
 Let's make a substitution such that
 \begin{eqnarray}
@@ -437,9 +437,9 @@ Let's make a substitution such that
 \end{eqnarray}
 Returning to the main equation,
 \begin{eqnarray}
-  \lambda(t)dt & = & N_0^2K'\left[\frac{u(K'-1)}{(u+1)(K'-1)}\right]^2
+  \lambda(t)dt & = & N_0K'\left[\frac{u(K'-1)}{(u+1)(K'-1)}\right]^2
       \frac{du}{u} \\
-  & = & N_0^2K'\frac{u}{(u+1)^2}du \\
+  & = & N_0K'\frac{u}{(u+1)^2}du \\
 \end{eqnarray}
 
 Sometimes these are easier when split, so
@@ -461,7 +461,7 @@ The integral of the hazard, in terms of $u(t)$ and replacing $N_0K'=K$, is then
     \ln\left(\frac{u_1+1}{u_0+1}\right)-\frac{u_1-u_0}{(u_0+1)(u_1+1)}
     \right].
 \end{equation}
-Now reverse substitutions:
+Now reverse substitutions. Derive here some handy quantities.
 \begin{eqnarray}
   u & = & \frac{e^{t'}}{K'-1} \\
     & = & \frac{e^{rt}}{K/N_0 - 1} \\
@@ -498,7 +498,8 @@ The right-hand side's exponential is between 1 and $1/e$, so the maximum
 value of $u_1$ is $u_1=\exp(x_a' + 1)-1$.
 
 What happens for solving the inverse integral when the time difference
-is small?
+is small? This matters because roundoff error for small differences
+can cause roots to be on the same side of zero, so Brent's method fails.
 \begin{eqnarray}
   \int_{u_0(t)}^{u_1(t)}\lambda(t)dt& =& K\left[
     \ln\left(\frac{x+u_0+1}{u_0+1}\right)-\frac{x}{(u_0+1)(x+u_0+1)}
@@ -512,5 +513,18 @@ is small?
   x & = & \frac{-(p-1-px_a/K)\pm\sqrt{(p-1-px_a/K)^2+4p^2x_a/K}}{2} \\
   x & = & \frac{-(u_0-(1+u_0)x_a/K)\pm\sqrt{(u_0-px_a/K)^2+4(1+u_0)^2x_a/K}}{2} \\
 \end{eqnarray}
+This doesn't work. Mistake somewhere.
+
+
+Maybe a simple way to approximate the integral is
+to use a Riemann sum. Take
+\begin{eqnarray}
+  \int_{u_0(t)}^{u_0(t)+\Delta u}\lambda(t)dt& \approx& K\frac{u_0}{(u_0+1)^2}
+      \Delta u \\
+  \Delta u&=& \frac{x_a(u_0+1)^2}{Ku_0} \\
+\end{eqnarray}
+This one works.
+
+
 
 \end{document}

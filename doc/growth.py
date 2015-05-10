@@ -36,6 +36,7 @@ def invhazard(r, n0, k, t0, xa):
 
 
 def invhazardvieta(r, n0, k, t0, xa):
+    logger.error("This one fails")
     u0=u_of_t(r, n0, k, t0)
     # a=1
     b=u0-(1+u0)*xa/k
@@ -44,9 +45,14 @@ def invhazardvieta(r, n0, k, t0, xa):
     x2=c/x1
     return t_of_u(r, n0, k, x2)
 
+def invhazardriemann(r, n0, k, t0, xa):
+    u0=u_of_t(r, n0, k, t0)
+    delta_u=xa*(u0+1)**2/(k*u0)
+    return t_of_u(r, n0, k, u0+delta_u)
+
 
 def testuandt():
-    r=1.1
+    r=.1
     n0=2.0
     k=1000.0
     maxerr=0
@@ -59,7 +65,7 @@ def testuandt():
 
 
 def testint():
-    r=1.1
+    r=.1
     n0=2.0
     k=1000.0
     maxerr=0
@@ -72,7 +78,7 @@ def testint():
     print(maxerr)
 
 def testinv():
-    r=1.1
+    r=.1
     n0=2.0
     k=1000.0
     maxerr=0
@@ -85,7 +91,7 @@ def testinv():
     print(maxerr)
 
 def testinvv():
-    r=1.1
+    r=.1
     n0=2.0
     k=1000.0
     maxerr=0
@@ -93,7 +99,7 @@ def testinvv():
         for t1n in range(4,9):
             t1=10**(-t1n)
             xa=inthazard(r, n0, k, t0, t0+t1)
-            tf=invhazardvieta(r, n0, k, t0, xa)
+            tf=invhazardriemann(r, n0, k, t0, xa)
             maxerr=max(maxerr, abs(t0+t1 - tf))
             logger.debug("{0} {1} {2}".format(xa, t0+t1, tf))
     print(maxerr)

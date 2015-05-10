@@ -28,6 +28,9 @@ double ExcessGrowthFunction(double y, void* params);
  *  is exponential, and logistic growth accounts for those who stay.
  *  This distribution is described in detail in accompanying
  *  documentation.
+ *
+ *  There is a python file, growth.py, that demonstrates what
+ *  this class does. It's allso in hopskip.tex.
  */
 template<typename RNG>
 class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
@@ -43,6 +46,7 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   ExcessGrowth(double N0, double K, double r, double te)
     : params_(new ExcessGrowthParams), te_(te),
       N0_(N0), K_(K), r_(r) {
+    assert(N0>K); // Carrying capacity greater than initial seed.
     excess_function_.reset(new gsl_function());
     solver_.reset(gsl_root_fsolver_alloc(solver_type_));
     excess_function_->function=&ExcessGrowthFunction;
@@ -66,16 +70,27 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     assert(t1>=t0);
     double y0=y_of_t(t0-te_);
     double y1=y_of_t(t1-te_);
-    return (K_/r_)*( log((y1+1)/(y0+1)) - (y1-y0)/((y0+1)*(y1+1) ));
+    return K_*( std::log((y1+1)/(y0+1)) - (y1-y0)/((y0+1)*(y1+1) ));
   }
 
   virtual double ImplicitHazardIntegral(double xa, double t0) const {
-    double resolution=1e9;
+    if (xa<1e-6) {
+      // Avoid Brent when resolution is low.
+      return this->SmallInverseHazardIntegral(xa, t0);
+    }
+
+    double absresolution=1e-9;
+    double relresolution=1e-8;
     int iter_max=1000;
+    assert(xa>0);
     double y0=y_of_t(t0-te_);
-    params_->xa=xa*r_/K_ + std::log(y0+1) - y0/(y0+1);
+    assert(std::abs(te_+t_of_y(y0) - t0) < 1e-6);
+    params_->xa=xa/K_ + std::log(y0+1) - y0/(y0+1);
     double low_bound=y0;
     double high_bound=std::exp(params_->xa + 1) - 1;
+    // BOOST_LOG_TRIVIAL(debug)<<"low "<<
+    //   ExcessGrowthFunction(low_bound, params_) <<" high "
+    //   <<ExcessGrowthFunction(high_bound, params_);
 
     gsl_root_fsolver_set(solver_.get(), excess_function_.get(),
       low_bound, high_bound);
@@ -102,7 +117,8 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
       y1=gsl_root_fsolver_root(solver_.get());
       double t_low=gsl_root_fsolver_x_lower(solver_.get());
       double t_high=gsl_root_fsolver_x_upper(solver_.get());
-      test_status=gsl_root_test_interval(t_low, t_high, resolution, 0);
+      test_status=gsl_root_test_interval(t_low, t_high, absresolution,
+        relresolution);
       ++iter;
     }
     if (test_status!=GSL_SUCCESS) {
@@ -111,12 +127,25 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     if (iter==iter_max) {
       BOOST_LOG_TRIVIAL(error)<< "Reached max iteration.";
     }
-    return te_+t_of_y(y1);
+    double t_low=gsl_root_fsolver_x_lower(solver_.get());
+    double t_high=gsl_root_fsolver_x_upper(solver_.get());
+    BOOST_LOG_TRIVIAL(debug)<<"xa "<<xa<<" t0 "<< t0 << " y0 " << y0
+      << " y1 " << y1;
+    BOOST_LOG_TRIVIAL(debug)<<"iter "<<iter
+    << " low "<<low_bound<<" high "<<high_bound;
+    BOOST_LOG_TRIVIAL(debug)<< "tlow "<<t_low<<" thigh "<<t_high;
+    return te_+this->t_of_y(y1);
   }
 
  private:
-  inline double y_of_t(double t) const { return std::exp(r_*t)*N0_/(K_-N0_); }
-  inline double t_of_y(double y) const { return std::log(y*K_/N0_-1)/r_; }
+  inline double y_of_t(double t) const { return std::exp(r_*t)/((K_/N0_)-1); }
+  inline double t_of_y(double y) const { return std::log(y*((K_/N0_)-1))/r_; }
+
+  double SmallInverseHazardIntegral(double xa, double t0) const {
+    double y0=this->y_of_t(t0-te_);
+    double dy=xa*std::pow(y0+1, 2)/(K_*y0);
+    return te_+this->t_of_y(y0+dy);
+  }
 };
 
 int TestExcessGrowthDistribution();
