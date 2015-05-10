@@ -32,7 +32,7 @@ class SIRObserver : public hsb::TrajectoryObserver {
 
 // [[Rcpp::export]]
 DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
-  afidd::LogInit("error");
+  afidd::LogInit("info");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
@@ -40,11 +40,14 @@ DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
   List parameters(parametersS);
   std::map<std::string, boost::any> params;
   params["individual_cnt"]=int64_t{as<int>(parameters["individual_cnt"])};
+  params["N0"]=double{as<double>(parameters["N0"])};
   params["beta0"]=double{as<double>(parameters["beta0"])};
   params["beta1"]=double{as<double>(parameters["beta1"])};
   params["beta2"]=double{as<double>(parameters["beta2"])};
   params["gamma"]=double{as<double>(parameters["gamma"])};
   params["cutoff"]=double{as<double>(parameters["cutoff"])};
+  params["growthrate"]=double{as<double>(parameters["growthrate"])};
+  params["carrying"]=double{as<double>(parameters["carrying"])};
   int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
   params["seed"]=rand_seed;
 

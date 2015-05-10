@@ -11,7 +11,6 @@
 \usepackage{palatino}
 \usepackage{microtype}
 
-
 \title{What Is Hop-Skip-Jump?}
 \author{Drew Dolgert}
 \date{\today}
@@ -381,6 +380,14 @@ and make that a deterministic number, then a theoretically
 simple hazard rate for bugs leaving a house is excess growth,
 which is the difference between exponential growth and logistic growth.
 
+\begin{figure}
+\centerline{\includegraphics[width=7cm]{excess}}
+\caption{The total number of bugs in a house follows
+a logistic model. The growth rate per bug is constant.
+Excess growth is assumed to contribute to migration.
+Parameters are $N_0=1$, $r=4.5$, $K=1000.$\label{fig:excessslopes}}
+\end{figure}
+
 Exponential growth is
 \begin{equation}
   \frac{dN'}{dt}=rN,
@@ -473,6 +480,9 @@ Now reverse substitutions. Derive here some handy quantities.
         & = & \frac{K + N_0(e^{rt}-1)}{K-N_0} \\
   \frac{u}{u+1} & = & \frac{N_0e^{rt}}{K + N_0(e^{rt}-1)}
 \end{eqnarray}
+In code, the transformation between $u$ and $t$
+looks like \href{https://github.com/adolgert/hop-skip-bite/blob/0ea11efae867e209c90aeab8c087c749ec52a2f7/hopskip/src/excess_growth.hpp#L141-L142}{this}.
+
 
 
 In code, the two calculations are integrated hazard and
@@ -526,5 +536,9 @@ to use a Riemann sum. Take
 This one works.
 
 
+Is this a good time to remind ourselves that we don't want the
+excess growth rate but a scaled excess growth rate? It corresponds
+to death of bugs on their way to the next house. It's just a factor
+on the integral and on $x_a$ for the inverse integral.
 
 \end{document}

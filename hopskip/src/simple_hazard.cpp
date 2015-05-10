@@ -16,7 +16,7 @@ namespace hsb {
 namespace simple_hazard {
 
 enum class Parameter : int { none, beta0, beta1, beta2, gamma,
-  N0, carrying, growthrate };
+  N0, carrying, growthrate, growthscale };
 
 // A token is an instance of this class.
 struct AnonymousToken {
@@ -147,9 +147,9 @@ class Infect1 : public SIRTransition {
 
 
 // Infect a hop-distance away with one hazard.
-class ExcessInfect : public SIRTransition {
+class ExcessInfect0 : public SIRTransition {
   public:
-    ExcessInfect() {}
+    ExcessInfect0() {}
 
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
@@ -162,6 +162,7 @@ class ExcessInfect : public SIRTransition {
                 s.params.at(Parameter::N0),
                 s.params.at(Parameter::carrying),
                 s.params.at(Parameter::growthrate),
+                s.params.at(Parameter::beta0),
                 te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -174,6 +175,36 @@ class ExcessInfect : public SIRTransition {
     }
 };
 
+
+
+// Infect a hop-distance away with one hazard.
+class ExcessInfect1 : public SIRTransition {
+  public:
+    ExcessInfect1() {}
+
+    virtual std::pair<bool, std::unique_ptr<Dist>>
+    Enabled(const UserState& s, const Local& lm,
+        double te, double t0, RandGen& rng) override {
+        int64_t I=lm.template Length<0>(0);
+        int64_t S=lm.template Length<0>(1);
+        if (S>0 && I>0) {
+            return {true, std::unique_ptr<ExcessGrowth<RandGen>>(
+              new ExcessGrowth<RandGen>(
+                s.params.at(Parameter::N0),
+                s.params.at(Parameter::carrying),
+                s.params.at(Parameter::growthrate),
+                s.params.at(Parameter::beta1),
+                te))};
+        } else {
+            return {false, std::unique_ptr<Dist>(nullptr)};
+        }
+    }
+
+    virtual void Fire(UserState& s, Local& lm, double t0,
+        RandGen& rng) override {
+        lm.template Move<0,0>(1, 2, 1);
+    }
+};
 
 class Notify : public SIRTransition {
   public:
@@ -255,6 +286,59 @@ void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
 }
 
 
+void BuildGrowthSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
+      double cutoff, RandGen& rng) {
+    using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
+    int64_t cnt=std::lround(std::sqrt(pairwise.size()));
+
+    for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
+        for (int64_t dcreate_idx=0; dcreate_idx<3; ++dcreate_idx) {
+            bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
+        }
+    }
+
+    for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
+        auto source=SIRPlace{source_idx, 1};
+        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
+            auto susceptible=SIRPlace{target_idx, 0};
+            auto infected=SIRPlace{target_idx, 1};
+            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+                bg.AddTransition({source_idx, target_idx, 1},
+                    {Edge{source, -1}, Edge{susceptible, -1},
+                    Edge{infected, 1}},
+                    std::unique_ptr<SIRTransition>(new ExcessInfect0()));
+            } else {
+                bg.AddTransition({source_idx, target_idx, 1},
+                    {Edge{source, -1}, Edge{susceptible, -1},
+                    Edge{infected, 1}},
+                    std::unique_ptr<SIRTransition>(new ExcessInfect1()));
+            }
+        }
+
+        bg.AddTransition({source_idx, source_idx, 3},
+          {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, 1}},
+          std::unique_ptr<SIRTransition>(new Notify()));
+
+        auto nsource=SIRPlace{source_idx, 2};
+        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
+            auto susceptible=SIRPlace{target_idx, 0};
+            auto infected=SIRPlace{target_idx, 1};
+            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+                bg.AddTransition({source_idx, target_idx, 2},
+                    {Edge{nsource, -1}, Edge{susceptible, -1},
+                    Edge{infected, 1}},
+                    std::unique_ptr<SIRTransition>(new ExcessInfect0()));
+            } else {
+                bg.AddTransition({source_idx, target_idx, 2},
+                    {Edge{nsource, -1}, Edge{susceptible, -1},
+                    Edge{infected, 1}},
+                    std::unique_ptr<SIRTransition>(new ExcessInfect1()));
+            }
+        }
+    }
+}
+
+
 
 template<typename GSPN, typename SIRState>
 struct SIROutput {
@@ -321,6 +405,7 @@ struct SIROutput {
 int64_t SIR_run(std::map<std::string, boost::any> params,
     const std::vector<double>& pairwise_distance,
     std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
+  BOOST_LOG_TRIVIAL(debug)<<"Entering SIR_run";
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 
@@ -328,17 +413,37 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
   int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
   SIRGSPN gspn(place_cnt+transition_cnt);
   double cutoff=boost::any_cast<double>(params["cutoff"]);
-  BuildSystem(gspn, pairwise_distance, cutoff, rng);
+  double growthrate=boost::any_cast<double>(params["growthrate"]);
+  if (growthrate<=0) {
+    BuildSystem(gspn, pairwise_distance, cutoff, rng);
+  } else {
+    BuildGrowthSystem(gspn, pairwise_distance, cutoff, rng);
+  }
 
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
 
+
+  static const std::map<Parameter,std::string> par_key= {
+    {Parameter::N0, "N0"},
+    {Parameter::beta0, "beta0"},
+    {Parameter::beta1, "beta1"},
+    {Parameter::beta2, "beta2"},
+    {Parameter::gamma, "gamma"},
+    {Parameter::growthrate, "growthrate"},
+    {Parameter::carrying, "carrying"}
+    };
+
   SIRState state;
 
-  state.user.params[Parameter::beta0]=boost::any_cast<double>(params["beta0"]);
-  state.user.params[Parameter::beta1]=boost::any_cast<double>(params["beta1"]);
-  state.user.params[Parameter::beta2]=boost::any_cast<double>(params["beta2"]);
-  state.user.params[Parameter::gamma]=boost::any_cast<double>(params["gamma"]);
+  for (auto& kv : par_key) {
+    try {
+      state.user.params[kv.first]=boost::any_cast<double>(params[kv.second]);
+      BOOST_LOG_TRIVIAL(debug)<<kv.second<<"="<<state.user.params[kv.first];
+    } catch (boost::bad_any_cast) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not cast "<<kv.second;
+    }
+  }
 
   std::uniform_int_distribution<int64_t> random_individual(0, individual_cnt-1);
   int64_t infected_start=random_individual(rng);

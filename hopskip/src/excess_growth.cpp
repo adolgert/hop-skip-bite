@@ -15,6 +15,7 @@ int TestExcessGrowthDistribution() {
   //auto rng=RandGen(33333);
   int error_cnt=0;
   double eps=1e-6;
+  double scale=0.8;
   for (int tidx=0; tidx<3; ++tidx) {
     double te=0.7*tidx;
     for (int nidx=1; nidx<3; ++nidx) {
@@ -23,7 +24,7 @@ int TestExcessGrowthDistribution() {
         double K=N0*kidx*100;
         for (int ridx=0; ridx<3; ++ridx) {
           double r=std::pow(10, -1-ridx);
-          ExcessGrowth<RandGen> dist(N0, K, r, te);
+          ExcessGrowth<RandGen> dist(N0, K, r, scale, te);
 
           for (int t0idx=0; t0idx<5; ++t0idx) {
             double t0=te+t0idx*0.1;
