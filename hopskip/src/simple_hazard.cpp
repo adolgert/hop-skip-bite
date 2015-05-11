@@ -390,7 +390,9 @@ struct SIROutput {
     }
   }
 
-  void final(const SIRState& state) {}
+  void final(const SIRState& state) {
+    observer_->final();
+  }
 
  private:
   const GSPN& gspn_;

@@ -20,18 +20,50 @@ class SIRObserver : public hsb::TrajectoryObserver {
     who_.push_back(who);
     who2_.push_back(who2);
   }
+  virtual void final() {}
 
   std::vector<double> when_;
   std::vector<int> what_;
   std::vector<int64_t> who_;
   std::vector<int64_t> who2_;
 };
+
+
+
+class CallbackEventObserver : public hsb::TrajectoryObserver {
+  Rcpp::Function callback_;
+  std::vector<double> when_;
+  std::vector<int> what_;
+  std::vector<int64_t> who_;
+  std::vector<int64_t> who2_;
+ public:
+  CallbackEventObserver(Rcpp::Function callback) : callback_(callback) {}
+  virtual ~CallbackEventObserver() {}
+  virtual void event(double when, int what, int64_t who, int64_t who2) {
+    when_.push_back(when);
+    what_.push_back(what);
+    who_.push_back(who);
+    who2_.push_back(who2);
+  }
+
+  virtual void final() {
+    NumericVector when(when_.begin(), when_.end());
+    IntegerVector what(what_.begin(), what_.end());
+    IntegerVector who(who_.begin(), who_.end());
+    IntegerVector who2(who2_.begin(), who2_.end());
+
+    auto df=DataFrame::create(Named("times")=when,
+      Named("event")=what, Named("who")=who, Named("actor")=who2);
+    BOOST_LOG_TRIVIAL(debug)<<"Writing results to callback";
+    callback_(df);
+  }
+};
 }
 
 
-
 // [[Rcpp::export]]
-DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
+SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
+    Rcpp::Function callback) {
   afidd::LogInit("info");
 
   NumericVector pairwise(pairwise_distanceS);
@@ -51,25 +83,18 @@ DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS) {
   int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
   params["seed"]=rand_seed;
 
-  auto observer=std::make_shared<SIRObserver>();
+  auto observer=std::make_shared<CallbackEventObserver>(callback);
 
   RandGen rng(rand_seed);
   hsb::simple_hazard::SIR_run(params, distance, observer, rng);
-
-  NumericVector when(observer->when_.begin(), observer->when_.end());
-  IntegerVector what(observer->what_.begin(), observer->what_.end());
-  IntegerVector who(observer->who_.begin(), observer->who_.end());
-  IntegerVector who2(observer->who2_.begin(), observer->who2_.end());
-
-  return DataFrame::create(Named("times")=when,
-      Named("event")=what, Named("who")=who, Named("actor")=who2);
+  return Rcpp::wrap(0);
 }
 
 
 
 // [[Rcpp::export]]
 DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS) {
-  afidd::LogInit("error");
+  afidd::LogInit("info");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
@@ -114,4 +139,23 @@ DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS) {
 // [[Rcpp::export]]
 SEXP TestExcessGrowthDistribution() {
   return Rcpp::wrap(hsb::TestExcessGrowthDistribution());
+}
+
+
+template<typename B>
+void fillit(B& callback, int idx) {
+  std::vector<int> events { 1, 3, 5, 7, 9};
+  Rcpp::IntegerVector sevents(events.size());
+  for (size_t i=0; i<events.size(); ++i) {
+    sevents[i]=events[i];
+  }
+  sevents[1]=idx;
+  callback(sevents);
+}
+
+// [[Rcpp::export]]
+SEXP TestCallback(Function callback) {
+  fillit(callback, 4);
+  fillit(callback, 7);
+  return Rcpp::wrap(0);
 }

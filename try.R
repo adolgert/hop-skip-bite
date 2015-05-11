@@ -13,7 +13,16 @@ sirtest <- function(n) {
   dx<-pairdist(X)
   p<-c(individual_cnt=dim(dx)[[1]], seed=33333, N0=1.0, beta0=0.3, beta1=0.01,
     beta2=0.1, gamma=0.1, cutoff=0.1, growthrate=4.5, carrying=1000.0)
-  list("locations"=X, "events"=simple_hazard(dx, p))
+
+  callback_env<-new.env(parent=emptyenv())
+  callback_env$results=list()
+  callback<-function(arg) {
+    callback_env$results[[length(callback_env$results)+1]]<- arg
+  }
+
+  simple_hazard(dx, p, callback)
+  print(callback_env$results)
+  list("locations"=X, "events"=callback_env$results[[1]])
 }
 
 

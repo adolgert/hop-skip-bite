@@ -6,6 +6,7 @@ namespace hsb {
 class TrajectoryObserver {
  public:
   virtual void event(double when, int what, int64_t who, int64_t who2)=0;
+  virtual void final() = 0;
 };
 
 

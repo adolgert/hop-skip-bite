@@ -6,14 +6,15 @@
 using namespace Rcpp;
 
 // simple_hazard
-DataFrame simple_hazard(SEXP pairwise_distanceS, SEXP parametersS);
-RcppExport SEXP hopskip_simple_hazard(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP) {
+SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS, Function callback);
+RcppExport SEXP hopskip_simple_hazard(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP, SEXP callbackSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
     Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
-    __result = Rcpp::wrap(simple_hazard(pairwise_distanceS, parametersS));
+    Rcpp::traits::input_parameter< Function >::type callback(callbackSEXP);
+    __result = Rcpp::wrap(simple_hazard(pairwise_distanceS, parametersS, callback));
     return __result;
 END_RCPP
 }
@@ -36,6 +37,17 @@ BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     __result = Rcpp::wrap(TestExcessGrowthDistribution());
+    return __result;
+END_RCPP
+}
+// TestCallback
+SEXP TestCallback(Function callback);
+RcppExport SEXP hopskip_TestCallback(SEXP callbackSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Function >::type callback(callbackSEXP);
+    __result = Rcpp::wrap(TestCallback(callback));
     return __result;
 END_RCPP
 }
