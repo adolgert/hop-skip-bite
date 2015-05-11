@@ -281,6 +281,20 @@ It's the solution to the differential equation
 \end{equation}
 The discrete form of this is called Beverton-Holt.
 
+Rewriting this to conform to a logistic equation shows
+its shape,
+\begin{equation}
+N(t)=\frac{K}{1+\exp\left(-rt+\ln(K/N_0-1)\right)}
+\end{equation}
+\begin{equation}
+N(t)=\frac{K}{1+\exp\left(-r(t-\ln(K/N_0-1)/r)\right)}
+\end{equation}
+Carrying capacity is $K$.
+The steepness of the curve is $r$, and its midpoint
+is $\ln(K/N_0-1)/r$. Having an estimate $t_0$ for
+the time when the bugs are halfway to carrying capacity
+sets a relation $K/N_0=1+e^{rt_0}$.
+
 This is equivalent to a birth rate $\beta(1-N/K)$ and death rate $\delta$
 in a well-mixed population for a stochastic, continuous-time model.
 Another kind of solution makes the differential equation stochastic
@@ -381,11 +395,11 @@ simple hazard rate for bugs leaving a house is excess growth,
 which is the difference between exponential growth and logistic growth.
 
 \begin{figure}
-\centerline{\includegraphics[width=7cm]{excess}}
+\centerline{\includegraphics[width=10cm]{excess}}
 \caption{The total number of bugs in a house follows
 a logistic model. The growth rate per bug is constant.
 Excess growth is assumed to contribute to migration.
-Parameters are $N_0=1$, $r=4.5$, $K=1000.$\label{fig:excessslopes}}
+Parameters are $N_0=1\:\mbox{bugs}$, $r=4.5\:\mbox{bugs/bug--yr}$, $K=1000\:\mbox{bugs}.$\label{fig:excessslopes}}
 \end{figure}
 
 Exponential growth is
@@ -425,7 +439,8 @@ with $rt\equiv t'$ and $K=N_0K'$.
     \frac{e^{t'}}{N_0K'+N_0(e^{t'}-1)}\right]^2dt' \\
   &=&N_0^2(N_0K')\frac{1}{N_0^2}\left[
     \frac{e^{t'}}{K'+(e^{t'}-1)}\right]^2dt' \\
-  & = & N_0K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]^2dt'.
+  & = & N_0K'\left[\frac{e^{t'}}{K'+e^{t'}-1}\right]^2dt'.\label{eqn:hazardrescale} \\
+  & = & N_0K'\left[\frac{1}{1+e^{-t'}(K'-1)}\right]^2dt'
 \end{eqnarray}
 Because time is always greater than or equal to zero, and carrying
 capacity is positive, the denumerator is greater than zero.
@@ -434,6 +449,7 @@ to show that.
 \begin{equation}
   \lambda(t)dt =N_0K'\left[\frac{e^{t'}}{e^{t'}+(K'-1)}\right]^2dt'
 \end{equation}
+
 Let's make a substitution such that
 \begin{eqnarray}
   e^{t'}+(K'-1)& = & (u + 1)(K'-1) \\
@@ -540,5 +556,41 @@ Is this a good time to remind ourselves that we don't want the
 excess growth rate but a scaled excess growth rate? It corresponds
 to death of bugs on their way to the next house. It's just a factor
 on the integral and on $x_a$ for the inverse integral.
+What does it mean to add a scale to the hazard rate?
+
+The free parameters of the system, $N_0$, $K$, and $r$
+can be seen in Eq.~\ref{eqn:hazardrescale}. The
+$r$ parameter is a scaling on the time. $K/N_0$
+appears in transformations from $u$ to $t$ and back.
+$N_0$ then appears in front of the equation as an overall
+scaling on the hazard rate. This means that changing scaling
+to reflect the death of bugs is equivalent to changing
+$N_0$ while keeping $K/N_0$ fixed. In English, a higher
+death rate of bugs infecting neighbors is exactly equivalent
+to reducing both initial population size and carrying capacity.
+
+The maximum hazard rate, for large times, is
+\begin{equation}
+  \lambda_{\mbox{\tiny max}}=rK=rN_0\frac{K}{N_0}.
+\end{equation}
+For the parameters in Fig.~\ref{fig:excessslopes}, this value is
+4,500/year. That means infecting the neighbor a dozen times a day.
+We want to dial that down.
+Here's how we set parameters.
+\begin{enumerate}
+  \item Estimate $t_0$, the time to half capacity, from field
+        observation, expert opinion.
+  \item Set $r$ from studies on individuals.
+  \item Use the constitutive equation $K'=1+e^{rt_0}$ to
+        determine $K'$.
+  \item Don't worry about $N_0$ because we then decide
+        how long we think it would take a house at carrying
+        capacity to infect a neighbor. Call this hazard
+        $\beta$. Work backwards $p$ in
+        to get $prN_0K'=\beta$, so $p=\beta/(rN_0K')$.
+\end{enumerate}
+I expect sensitivity to $r$ and $K'$ to be lower. They
+just set the shape of the curve.
+
 
 \end{document}
