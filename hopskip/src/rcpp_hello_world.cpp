@@ -86,6 +86,7 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
   auto observer=std::make_shared<CallbackEventObserver>(callback);
 
   RandGen rng(rand_seed);
+  auto gspn=hsb::simple_hazard::SimpleHazardGSPN(params, distance, rng);
   hsb::simple_hazard::SIR_run(params, distance, observer, rng);
   return Rcpp::wrap(0);
 }

@@ -15,86 +15,6 @@ using namespace smv;
 namespace hsb {
 namespace simple_hazard {
 
-enum class Parameter : int { none, beta0, beta1, beta2, gamma,
-  N0, carrying, growthrate, growthscale };
-
-// A token is an instance of this class.
-struct AnonymousToken {
-    AnonymousToken()=default;
-    inline friend
-    std::ostream& operator<<(std::ostream& os, const AnonymousToken& at) {
-        return os << "T";
-    }
-};
-
-
-// Identifies a place uniquely.
-struct SIRPlace
-{
-  int64_t individual;
-  int64_t disease;
-  SIRPlace()=default;
-  SIRPlace(int64_t i, int64_t d) : individual(i), disease(d) {}
-  friend inline
-  bool operator<(const SIRPlace& a, const SIRPlace& b) {
-    return afidd::smv::LazyLess(a.individual, b.individual,
-        a.disease, b.disease);
-  }
-
-  friend inline
-  bool operator==(const SIRPlace& a, const SIRPlace& b) {
-    return (a.individual == b.individual) && (a.disease==b.disease);
-  }
-
-  friend inline
-  std::ostream& operator<<(std::ostream& os, const SIRPlace& cp) {
-    return os << '(' << cp.individual << ", " << cp.disease << ')';
-  }
-};
-
-
-
-// This identifies a transition uniquely.
-struct SIRTKey {
-    int64_t i;
-    int64_t j;
-    int64_t kind;
-    SIRTKey()=default;
-    SIRTKey(int64_t i, int64_t j, int64_t kind) : i(i), j(j), kind(kind) {}
-
-    friend inline
-    bool operator<(const SIRTKey& a, const SIRTKey& b) {
-        return afidd::smv::LazyLess(a.i, b.i, a.j, b.j, a.kind, b.kind);
-    }
-
-    friend inline
-    bool operator==(const SIRTKey& a, const SIRTKey& b) {
-        return (a.i==b.i) && (a.j==b.j) && (a.kind==b.kind);
-    }
-
-    friend inline
-    std::ostream& operator<<(std::ostream& os, const SIRTKey& cp) {
-        return os << '(' << cp.i << ',' << cp.j << ',' << cp.kind << ')';
-    }
-};
-
-
-// This is as much of the marking as the transition will see.
-using Local=LocalMarking<Uncolored<AnonymousToken>>;
-// Extra state to add to the system state. Will be passed to transitions.
-struct WithParams {
-  // Put our parameters here.
-  std::map<Parameter,double> params;
-};
-
-
-// The transition needs to know the local marking and any extra state.
-using SIRTransition=ExplicitTransition<Local,RandGen,WithParams>;
-
-using Dist=TransitionDistribution<RandGen>;
-using ExpDist=ExponentialDistribution<RandGen>;
-
-
 // Infect a hop-distance away with one hazard.
 class Infect0 : public SIRTransition {
   public:
@@ -229,8 +149,6 @@ class Notify : public SIRTransition {
 };
 
 
-using SIRGSPN=
-    ExplicitTransitions<SIRPlace, SIRTKey, Local, RandGen, WithParams>;
 
 
 void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
@@ -402,6 +320,27 @@ struct SIROutput {
   std::shared_ptr<TrajectoryObserver> observer_;
 };
 
+
+
+
+SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
+    const std::vector<double>& pairwise_distance, RandGen& rng) {
+  BOOST_LOG_TRIVIAL(debug)<<"Entering SIR_run";
+  assert(params["individual_cnt"].type()==typeid(int64_t));
+  int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
+
+  int64_t place_cnt=3*individual_cnt;
+  int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
+  SIRGSPN gspn(place_cnt+transition_cnt);
+  double cutoff=boost::any_cast<double>(params["cutoff"]);
+  double growthrate=boost::any_cast<double>(params["growthrate"]);
+  if (growthrate<=0) {
+    BuildSystem(gspn, pairwise_distance, cutoff, rng);
+  } else {
+    BuildGrowthSystem(gspn, pairwise_distance, cutoff, rng);
+  }
+  return gspn;
+}
 
 
 int64_t SIR_run(std::map<std::string, boost::any> params,
