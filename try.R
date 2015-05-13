@@ -1,4 +1,5 @@
 library("spatstat")
+library("survival")
 library("animation")
 library("hopskip")
 
@@ -84,7 +85,38 @@ end.times <- function(locations, events) {
   print(events$when[[cnt]])
 }
 
+
+single.trajectory <- function(filename, which=-1) {
+  env <- new.env(parent=emptyenv())
+  get.trajectory <- function(locations, arg) {
+    env$locations <- locations
+    env$trajectory <- arg
+  }
+  foreach.trajectory(filename, get.trajectory, 1)
+  list(locations=env$locations, trajectory=env$trajectory)
+}
+
+
+infection.times.hazard <- function(filename) {
+  trajectory_cnt <- trajectory.count(filename)
+  env <- new.env(parent=emptyenv())
+  env$times<-vector(mode="list", length=trajectory_cnt)
+  env$idx<-1
+  get.times<-function(locations, arg) {
+    cnt=nrow(locations)-1 # exclude first infection
+    print(paste("number of events", nrow(arg)))
+
+    time_to_infect <- subset(arg, event==1 | event==2)$when
+    print(paste("number infections", length(time_to_infect)))
+    print(env$idx)
+    env$times[[env$idx]] <- time_to_infect
+    env$idx <- env$idx + 1
+  }
+  foreach.trajectory(filename, get.times, 3)
+}
+
 # res<-bugtest(1000)
 # res<-sirgenerate(1000, 10)
 
-foreach.trajectory("z.h5", end.times)
+# foreach.trajectory("1000.h5", end.times, 3)
+infection.times.hazard("z.h5")

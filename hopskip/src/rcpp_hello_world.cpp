@@ -56,6 +56,10 @@ class CallbackEventObserver : public hsb::TrajectoryObserver {
       Named("event")=what, Named("whom")=who, Named("who")=who2);
     BOOST_LOG_TRIVIAL(debug)<<"Writing results to callback";
     callback_(df);
+    when_.clear();
+    what_.clear();
+    who_.clear();
+    who2_.clear();
   }
 };
 }
