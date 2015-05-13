@@ -52,8 +52,8 @@ class CallbackEventObserver : public hsb::TrajectoryObserver {
     IntegerVector who(who_.begin(), who_.end());
     IntegerVector who2(who2_.begin(), who2_.end());
 
-    auto df=DataFrame::create(Named("times")=when,
-      Named("event")=what, Named("who")=who, Named("actor")=who2);
+    auto df=DataFrame::create(Named("when")=when,
+      Named("event")=what, Named("whom")=who, Named("who")=who2);
     BOOST_LOG_TRIVIAL(debug)<<"Writing results to callback";
     callback_(df);
   }
@@ -72,6 +72,7 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
   List parameters(parametersS);
   std::map<std::string, boost::any> params;
   params["individual_cnt"]=int64_t{as<int>(parameters["individual_cnt"])};
+  params["initial"]=int64_t{as<int>(parameters["initial"])};
   params["N0"]=double{as<double>(parameters["N0"])};
   params["beta0"]=double{as<double>(parameters["beta0"])};
   params["beta1"]=double{as<double>(parameters["beta1"])};
@@ -87,7 +88,18 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
 
   RandGen rng(rand_seed);
   auto gspn=hsb::simple_hazard::SimpleHazardGSPN(params, distance, rng);
-  hsb::simple_hazard::SIR_run(params, distance, observer, rng);
+
+  int run_cnt=1;
+  if (parameters.containsElementNamed("runs")) {
+    run_cnt=as<int>(parameters["runs"]);
+    BOOST_LOG_TRIVIAL(debug)<<"has run cnt";
+  } else {
+    BOOST_LOG_TRIVIAL(debug)<<"doesn't have cnt";
+  }
+
+  for (int run_idx=0; run_idx<run_cnt; ++run_idx) {
+    hsb::simple_hazard::SIR_run(params, gspn, observer, rng);
+  }
   return Rcpp::wrap(0);
 }
 

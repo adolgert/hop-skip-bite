@@ -344,22 +344,12 @@ SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
 
 
 int64_t SIR_run(std::map<std::string, boost::any> params,
-    const std::vector<double>& pairwise_distance,
-    std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
+    SIRGSPN& gspn, std::shared_ptr<TrajectoryObserver> observer,
+    RandGen& rng) {
   BOOST_LOG_TRIVIAL(debug)<<"Entering SIR_run";
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
-
-  int64_t place_cnt=3*individual_cnt;
-  int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
-  SIRGSPN gspn(place_cnt+transition_cnt);
-  double cutoff=boost::any_cast<double>(params["cutoff"]);
-  double growthrate=boost::any_cast<double>(params["growthrate"]);
-  if (growthrate<=0) {
-    BuildSystem(gspn, pairwise_distance, cutoff, rng);
-  } else {
-    BuildGrowthSystem(gspn, pairwise_distance, cutoff, rng);
-  }
+  int64_t infected_start=boost::any_cast<int64_t>(params["initial"]);
 
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
@@ -387,7 +377,7 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
   }
 
   std::uniform_int_distribution<int64_t> random_individual(0, individual_cnt-1);
-  int64_t infected_start=random_individual(rng);
+  //int64_t infected_start=random_individual(rng);
   for (int64_t init_idx=0; init_idx<individual_cnt; ++init_idx) {
     if (init_idx!=infected_start) {
       Add<0>(state.marking, gspn.PlaceVertex({init_idx, 0}), AnonymousToken{});
