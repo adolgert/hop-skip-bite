@@ -25,6 +25,12 @@ sirgenerate <- function(house_cnt, run_cnt) {
     beta2=0.1, gamma=0.1, cutoff=0.1, growthrate=4.5, carrying=1000.0,
     runs=run_cnt, initial=start
     )
+  # fully infected takes n days to infect neighbor
+  ndays <- 30
+  max_hazard <- 365/ndays
+  p["beta0"] <- max_hazard/(p["growthrate"]*p["carrying"])
+  p["beta1"] <- p["beta0"]/20
+  print(p)
 
   outfile="z.h5"
   create_file(outfile)
@@ -32,13 +38,15 @@ sirgenerate <- function(house_cnt, run_cnt) {
   callback_env<-new.env(parent=emptyenv())
   callback_env$results=list()
   save.to.file <- function(arg) {
-    write_events(outfile, arg)
+    write_events(outfile, arg, p)
   }
   add.to.results<-function(arg) {
     callback_env$results[[length(callback_env$results)+1]]<- arg
   }
   
+  print("running")
   simple_hazard(dx, p, save.to.file)
+  print("ran")
 }
 
 #  list("locations"=X, "events"=callback_env$results[[1]])
@@ -96,6 +104,10 @@ single.trajectory <- function(filename, which=-1) {
   list(locations=env$locations, trajectory=env$trajectory)
 }
 
+to.filename <- function(human_name) {
+  gsub("[ %%]", "_", human_name)
+}
+
 
 infection.times.hazard <- function(filename) {
   trajectory_cnt <- trajectory.count(filename)
@@ -113,10 +125,19 @@ infection.times.hazard <- function(filename) {
     env$idx <- env$idx + 1
   }
   foreach.trajectory(filename, get.times, 3)
+  all_times <- unlist(env$times)
+  surv.object <- Surv(all_times, rep(1, length(all_times)))
+  x.fit<-survfit(surv.object ~ 1)
+  name <- "Infection Times"
+  pdf(paste(to.filename(name), ".pdf", sep=""))
+  plot(x.fit)
+  title(paste("Survival for", name),
+    xlab = "Time [years]", ylab = "Survival Fraction")
+  dev.off()
 }
 
 # res<-bugtest(1000)
-# res<-sirgenerate(1000, 10)
+res<-sirgenerate(1000, 10)
 
 # foreach.trajectory("1000.h5", end.times, 3)
-infection.times.hazard("z.h5")
+#infection.times.hazard("z.h5")

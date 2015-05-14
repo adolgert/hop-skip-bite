@@ -293,7 +293,8 @@ Carrying capacity is $K$.
 The steepness of the curve is $r$, and its midpoint
 is $\ln(K/N_0-1)/r$. Having an estimate $t_0$ for
 the time when the bugs are halfway to carrying capacity
-sets a relation $K/N_0=1+e^{rt_0}$.
+sets a relation $K/N_0=1+e^{rt_0}$. This is important because
+we have a better sense for half-carrying capacity than other parameters.
 
 This is equivalent to a birth rate $\beta(1-N/K)$ and death rate $\delta$
 in a well-mixed population for a stochastic, continuous-time model.
@@ -460,9 +461,9 @@ Let's make a substitution such that
 \end{eqnarray}
 Returning to the main equation,
 \begin{eqnarray}
-  \lambda(t)dt & = & N_0K'\left[\frac{u(K'-1)}{(u+1)(K'-1)}\right]^2
+  \lambda(t)dt & = & K\left[\frac{u(K'-1)}{(u+1)(K'-1)}\right]^2
       \frac{du}{u} \\
-  & = & N_0K'\frac{u}{(u+1)^2}du \\
+  & = & K\frac{u}{(u+1)^2}du \\
 \end{eqnarray}
 
 Sometimes these are easier when split, so
@@ -562,16 +563,14 @@ The free parameters of the system, $N_0$, $K$, and $r$
 can be seen in Eq.~\ref{eqn:hazardrescale}. The
 $r$ parameter is a scaling on the time. $K/N_0$
 appears in transformations from $u$ to $t$ and back.
-$N_0$ then appears in front of the equation as an overall
+$K$, not $K'$, then appears in front of the equation as an overall
 scaling on the hazard rate. This means that changing scaling
 to reflect the death of bugs is equivalent to changing
-$N_0$ while keeping $K/N_0$ fixed. In English, a higher
-death rate of bugs infecting neighbors is exactly equivalent
-to reducing both initial population size and carrying capacity.
+$K$ while keeping $K/N_0$ fixed.
 
 The maximum hazard rate, for large times, is
 \begin{equation}
-  \lambda_{\mbox{\tiny max}}=rK=rN_0\frac{K}{N_0}.
+  \lambda_{\mbox{\tiny max}}=rK.
 \end{equation}
 For the parameters in Fig.~\ref{fig:excessslopes}, this value is
 4,500/year. That means infecting the neighbor a dozen times a day.
@@ -587,7 +586,7 @@ Here's how we set parameters.
         how long we think it would take a house at carrying
         capacity to infect a neighbor. Call this hazard
         $\beta$. Work backwards $p$ in
-        to get $prN_0K'=\beta$, so $p=\beta/(rN_0K')$.
+        to get $prK=\beta$, so $p=\beta/(rK)$.
 \end{enumerate}
 I expect sensitivity to $r$ and $K'$ to be lower. They
 just set the shape of the curve.

@@ -15,7 +15,7 @@ int TestExcessGrowthDistribution() {
   //auto rng=RandGen(33333);
   int error_cnt=0;
   double eps=1e-6;
-  double scale=0.8;
+  double scale=0.0008;
   for (int tidx=0; tidx<3; ++tidx) {
     double te=0.7*tidx;
     for (int nidx=1; nidx<3; ++nidx) {
@@ -25,7 +25,6 @@ int TestExcessGrowthDistribution() {
         for (int ridx=0; ridx<3; ++ridx) {
           double r=std::pow(10, -1-ridx);
           ExcessGrowth<RandGen> dist(N0, K, r, scale, te);
-
           for (int t0idx=0; t0idx<5; ++t0idx) {
             double t0=te+t0idx*0.1;
             for (int t1idx=0; t1idx<5; ++t1idx) {
@@ -37,7 +36,11 @@ int TestExcessGrowthDistribution() {
                 ++error_cnt;
                 BOOST_LOG_TRIVIAL(error) << "mismatch " <<
                   N0 << " " << K << " " << r << " " << te << " " <<
-                  t0 << " " << t1 << " " << xa << " " << t1p << std::endl;
+                  t0 << " " << t1 << " " << xa << " " << std::abs(t1p-t1) << std::endl;
+                t1p=dist.SmallInverseHazardIntegral(xa, t0);
+                BOOST_LOG_TRIVIAL(error) << "mismatch2" <<
+                  N0 << " " << K << " " << r << " " << te << " " <<
+                  t0 << " " << t1 << " " << xa << " " << std::abs(t1p-t1) << std::endl;
               } else {
                 BOOST_LOG_TRIVIAL(debug) << "match    " <<
                   N0 << " " << K << " " << r << " " << te << " " <<

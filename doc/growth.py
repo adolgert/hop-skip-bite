@@ -8,9 +8,12 @@ import scipy.optimize
 
 logger=logging.getLogger(__file__)
 
+# This is the modifier on the maximum hazard.
+# Want to see if something small breaks it.
+p=0.000035
 
 def hazard(r, n0, k, t):
-    return r*n0*n0*k*(math.exp(r*t)/(k+n0*(math.exp(r*t)-1)))**2
+    return r*n0*n0*p*k*(math.exp(r*t)/(k+n0*(math.exp(r*t)-1)))**2
 
 def u_of_t(r, n0, k, t):
     return math.exp(r*t)/((k/n0)-1)
@@ -21,14 +24,14 @@ def t_of_u(r, n0, k, u):
 def inthazard(r, n0, k, t0, t1):
     u0=u_of_t(r, n0, k, t0)
     u1=u_of_t(r, n0, k, t1)
-    return k*(
+    return p*k*(
         math.log((u1+1)/(u0+1)) -
         (u1-u0)/((u0+1)*(u1+1))
         )
 
 def invhazard(r, n0, k, t0, xa):
     u0=u_of_t(r, n0, k, t0)
-    lhs=xa/k + math.log(u0+1) - u0/(u0+1)
+    lhs=xa/(p*k) + math.log(u0+1) - u0/(u0+1)
     f=lambda x: math.log(x+1)-x/(x+1)-lhs
     xmax=math.exp(lhs+1)-1
     u1=scipy.optimize.brentq(f, u0, xmax)
@@ -47,7 +50,7 @@ def invhazardvieta(r, n0, k, t0, xa):
 
 def invhazardriemann(r, n0, k, t0, xa):
     u0=u_of_t(r, n0, k, t0)
-    delta_u=xa*(u0+1)**2/(k*u0)
+    delta_u=xa*(u0+1)**2/(p*k*u0)
     return t_of_u(r, n0, k, u0+delta_u)
 
 
@@ -106,7 +109,7 @@ def testinvv():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     testuandt()
     testint()
     testinv()

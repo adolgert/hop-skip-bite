@@ -42,15 +42,14 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
   const gsl_root_fsolver_type* solver_type_{gsl_root_fsolver_brent};
   std::unique_ptr<gsl_root_fsolver> solver_;
   double te_;
-  double N0_;
-  double K_;
+  double KP_; // K/N0
+  double K_;  // K*scale
   double r_;
-  double scale_;
  public:
   ExcessGrowth(double N0, double K, double r, double scale, double te)
     : params_(new ExcessGrowthParams), te_(te),
-      N0_(N0), K_(K), r_(r), scale_(scale) {
-    assert(N0>K); // Carrying capacity greater than initial seed.
+      KP_(K/N0), K_(K*scale), r_(r) {
+    assert(KP_>1); // Carrying capacity greater than initial seed.
     excess_function_.reset(new gsl_function());
     solver_.reset(gsl_root_fsolver_alloc(solver_type_));
     excess_function_->function=&ExcessGrowthFunction;
@@ -74,14 +73,14 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     assert(t1>=t0);
     double y0=y_of_t(t0-te_);
     double y1=y_of_t(t1-te_);
-    return scale_*K_*( std::log((y1+1)/(y0+1)) - (y1-y0)/((y0+1)*(y1+1) ));
+    return K_*( std::log((y1+1)/(y0+1)) - (y1-y0)/((y0+1)*(y1+1) ));
   }
 
   virtual double ImplicitHazardIntegral(double xa, double t0) const {
     if (t0<te_) {
       t0=te_;
     }
-    if (xa<1e-6) {
+    if (xa/K_<1e-10) {
       // Avoid Brent when resolution is low.
       return this->SmallInverseHazardIntegral(xa, t0);
     }
@@ -92,7 +91,7 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     assert(xa>0);
     double y0=y_of_t(t0-te_);
     assert(std::abs(te_+t_of_y(y0) - t0) < 1e-6);
-    params_->xa=xa/(K_*scale_) + std::log(y0+1) - y0/(y0+1);
+    params_->xa=xa/K_ + std::log(y0+1) - y0/(y0+1);
     double low_bound=y0;
     double high_bound=std::exp(params_->xa + 1) - 1;
     // BOOST_LOG_TRIVIAL(debug)<<"low "<<
@@ -100,8 +99,8 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     //   <<ExcessGrowthFunction(high_bound, params_);
 
     BOOST_LOG_TRIVIAL(debug)<<"xa "<<xa<<" t0 "<< t0 << " y0 " << y0;
-    BOOST_LOG_TRIVIAL(debug)<<"te "<<te_<<" N0 "<< N0_ << " K " << K_
-      << " r " << r_ << " s " << scale_;
+    BOOST_LOG_TRIVIAL(debug)<<"te "<<te_<<" KP "<< KP_ << " K " << K_
+      << " r " << r_;
     gsl_root_fsolver_set(solver_.get(), excess_function_.get(),
       low_bound, high_bound);
 
@@ -147,15 +146,16 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     return te_+this->t_of_y(y1);
   }
 
- private:
-  inline double y_of_t(double t) const { return std::exp(r_*t)/((K_/N0_)-1); }
-  inline double t_of_y(double y) const { return std::log(y*((K_/N0_)-1))/r_; }
 
   double SmallInverseHazardIntegral(double xa, double t0) const {
     double y0=this->y_of_t(t0-te_);
-    double dy=(xa/scale_)*std::pow(y0+1, 2)/(K_*y0);
+    double dy=xa*std::pow(y0+1, 2)/(K_*y0);
     return te_+this->t_of_y(y0+dy);
   }
+
+ private:
+  inline double y_of_t(double t) const { return std::exp(r_*t)/(KP_-1); }
+  inline double t_of_y(double y) const { return std::log(y*(KP_-1))/r_; }
 };
 
 int TestExcessGrowthDistribution();

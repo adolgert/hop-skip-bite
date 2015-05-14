@@ -6,18 +6,17 @@ create_file <- function(filename) {
   }
   h5createFile(filename)
   h5createGroup(filename, "trajectory")
-  h5createGroup(filename, "other")
 }
 
 
 write_single_dataset <- function(outfile, trajectory_group, dset, name, type) {
   event_dataset=paste(trajectory_group, name, sep="/")
   d <- c(length(dset))
-  print(paste("writing dataset", event_dataset, "to", outfile, "dims",
-    d))
+  # print(paste("writing dataset", event_dataset, "to", outfile, "dims",
+  #   d))
   h5createDataset(file=outfile, dataset=event_dataset, dims=d,
     H5type=type)
-  h5write(dset, file=outfile, name=event_dataset)
+  h5write(dset, file=outfile, name=event_dataset, write.attributes=TRUE)
 }
 
 # locations are a spatstat dataset
@@ -31,10 +30,13 @@ write_locations <- function(outfile, locations) {
   h5write(m, file=outfile, name="locations")
 }
 
-write_events <- function(outfile, event_frame) {
+write_events <- function(outfile, event_frame, parameters) {
   trajectory_name=next_dataset(outfile)
   trajectory_group=paste("trajectory", trajectory_name, sep="/")
   h5createGroup(outfile, trajectory_group)
+  for (name in names(parameters)) {
+    attr(event_frame$event, name) <- parameters[name]
+  }
   write_single_dataset(outfile, trajectory_group, event_frame$event,
     "Event", "H5T_STD_I64LE")
   write_single_dataset(outfile, trajectory_group, event_frame$who,
@@ -43,6 +45,7 @@ write_events <- function(outfile, event_frame) {
     "Whom", "H5T_STD_I64LE")
   write_single_dataset(outfile, trajectory_group, event_frame$when,
     "When", "H5T_IEEE_F64LE")
+
 }
 
 
@@ -88,7 +91,6 @@ foreach.trajectory <- function(infile, functor, limit=-1) {
       trajectory_group<-paste("trajectory", name, sep="/")
       event<-h5read(infile, paste(trajectory_group, "Event", sep="/"),
         bit64conversion="int")
-      print(paste("reading", length(event), "events from", trajectory_group))
       who<-h5read(infile, paste(trajectory_group, "Who", sep="/"),
         bit64conversion="int")
       whom<-h5read(infile, paste(trajectory_group, "Whom", sep="/"),
