@@ -138,6 +138,6 @@ infection.times.hazard <- function(filename) {
 
 # res<-bugtest(1000)
 res<-sirgenerate(1000, 10)
-
+warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
 #infection.times.hazard("z.h5")

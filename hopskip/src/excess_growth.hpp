@@ -93,10 +93,21 @@ class ExcessGrowth : public afidd::smv::TransitionDistribution<RNG> {
     assert(std::abs(te_+t_of_y(y0) - t0) < 1e-6);
     params_->xa=xa/K_ + std::log(y0+1) - y0/(y0+1);
     double low_bound=y0;
-    double high_bound=std::exp(params_->xa + 1) - 1;
-    // BOOST_LOG_TRIVIAL(debug)<<"low "<<
-    //   ExcessGrowthFunction(low_bound, params_) <<" high "
-    //   <<ExcessGrowthFunction(high_bound, params_);
+    // The 1.001 gives the high bound some space for numerical roundoff.
+    double high_bound=1.001*(std::exp(params_->xa + 1) - 1);
+    // auto f=[](double y, double xa)->double {
+    //   ExcessGrowthParams p;
+    //   p.xa=xa;
+    //   return ExcessGrowthFunction(y, &p);
+    // };
+    // double lb=f(low_bound, params_->xa);
+    // double hb=f(high_bound, params_->xa);
+    // if ((lb<0 && hb<0) || (lb>0 && hb>0)) {
+    //   BOOST_LOG_TRIVIAL(error)<<"roots on same side "<<lb<<" "<<hb;
+    //   BOOST_LOG_TRIVIAL(error)<<"xa "<<xa<<" t0 "<< t0 << " y0 " << y0;
+    //   BOOST_LOG_TRIVIAL(error)<<"te "<<te_<<" KP "<< KP_ << " K " << K_
+    //     << " r " << r_;
+    // }
 
     BOOST_LOG_TRIVIAL(debug)<<"xa "<<xa<<" t0 "<< t0 << " y0 " << y0;
     BOOST_LOG_TRIVIAL(debug)<<"te "<<te_<<" KP "<< KP_ << " K " << K_
