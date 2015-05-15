@@ -1,3 +1,4 @@
+#include <fstream>
 #include "boost/any.hpp"
 #include "Rcpp.h"
 #include "simple_hazard.hpp"
@@ -64,6 +65,13 @@ class CallbackEventObserver : public hsb::TrajectoryObserver {
 };
 }
 
+struct TKeyWriter {
+  std::ofstream keyfile;
+  TKeyWriter() : keyfile("keys.txt") {}
+  void Write(int64_t id, hsb::simple_hazard::SIRTKey tid) {
+      keyfile << id << "\t" << tid << std::endl;
+  }
+};
 
 // [[Rcpp::export]]
 SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
@@ -92,6 +100,12 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
 
   RandGen rng(rand_seed);
   auto gspn=hsb::simple_hazard::SimpleHazardGSPN(params, distance, rng);
+
+  bool write_keys=false;
+  if (write_keys) {
+    TKeyWriter w;
+    gspn.WriteKeys(w);
+  }
 
   int run_cnt=1;
   if (parameters.containsElementNamed("runs")) {

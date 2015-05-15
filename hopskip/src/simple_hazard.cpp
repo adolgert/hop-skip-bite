@@ -74,6 +74,7 @@ class ExcessInfect0 : public SIRTransition {
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::Enabled()";
         int64_t I=lm.template Length<0>(0);
         int64_t S=lm.template Length<0>(1);
         if (S>0 && I>0) {
@@ -91,7 +92,9 @@ class ExcessInfect0 : public SIRTransition {
 
     virtual void Fire(UserState& s, Local& lm, double t0,
         RandGen& rng) override {
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::Fire()";
         lm.template Move<0,0>(1, 2, 1);
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::~Fire()";
     }
 };
 
@@ -105,6 +108,7 @@ class ExcessInfect1 : public SIRTransition {
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::Enabled()";
         int64_t I=lm.template Length<0>(0);
         int64_t S=lm.template Length<0>(1);
         if (S>0 && I>0) {
@@ -122,7 +126,9 @@ class ExcessInfect1 : public SIRTransition {
 
     virtual void Fire(UserState& s, Local& lm, double t0,
         RandGen& rng) override {
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::Fire()";
         lm.template Move<0,0>(1, 2, 1);
+      BOOST_LOG_TRIVIAL(trace)<<"ExcessInfect0::~Fire()";
     }
 };
 
@@ -134,7 +140,8 @@ class Notify : public SIRTransition {
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
         int64_t I=lm.template Length<0>(0);
-        if (I>0) {
+        int64_t cryptic=lm.template Length<0>(1);
+        if (I>0 && cryptic>0) {
             double rate=s.params.at(Parameter::gamma);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
@@ -144,7 +151,9 @@ class Notify : public SIRTransition {
 
     virtual void Fire(UserState& s, Local& lm, double t0,
         RandGen& rng) override {
-        lm.template Move<0,0>(0, 1, 1);
+      BOOST_LOG_TRIVIAL(trace)<<"Notify::Fire()";
+        lm.template Move<0,0>(1, 2, 1);
+      BOOST_LOG_TRIVIAL(trace)<<"Notify::~Fire()";
     }
 };
 
@@ -153,107 +162,78 @@ class Notify : public SIRTransition {
 
 void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
       double cutoff, RandGen& rng) {
-    using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
-    int64_t cnt=std::lround(std::sqrt(pairwise.size()));
+  using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
+  int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
-    for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
-        for (int64_t dcreate_idx=0; dcreate_idx<3; ++dcreate_idx) {
-            bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
-        }
+  // disease states are 
+  // 0 susceptible, 1 infected, 2 undetected, 3 detected
+  for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
+    for (int64_t dcreate_idx=0; dcreate_idx<4; ++dcreate_idx) {
+      bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
+    }
+  }
+
+  for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
+    auto source=SIRPlace{source_idx, 1}; // infected
+    for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
+      auto susceptible=SIRPlace{target_idx, 0};
+      auto infected=SIRPlace{target_idx, 1};
+      if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+        bg.AddTransition({source_idx, target_idx, 1},
+          {Edge{source, -1}, Edge{susceptible, -1},
+          Edge{infected, 1}},
+          std::unique_ptr<SIRTransition>(new Infect0()));
+      } else {
+        bg.AddTransition({source_idx, target_idx, 1},
+          {Edge{source, -1}, Edge{susceptible, -1},
+          Edge{infected, 1}},
+          std::unique_ptr<SIRTransition>(new Infect1()));
+      }
     }
 
-    for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
-        auto source=SIRPlace{source_idx, 1};
-        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
-            auto susceptible=SIRPlace{target_idx, 0};
-            auto infected=SIRPlace{target_idx, 1};
-            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
-                bg.AddTransition({source_idx, target_idx, 1},
-                    {Edge{source, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new Infect0()));
-            } else {
-                bg.AddTransition({source_idx, target_idx, 1},
-                    {Edge{source, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new Infect1()));
-            }
-        }
-
-        bg.AddTransition({source_idx, source_idx, 3},
-          {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, 1}},
-          std::unique_ptr<SIRTransition>(new Notify()));
-
-        auto nsource=SIRPlace{source_idx, 2};
-        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
-            auto susceptible=SIRPlace{target_idx, 0};
-            auto infected=SIRPlace{target_idx, 1};
-            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
-                bg.AddTransition({source_idx, target_idx, 2},
-                    {Edge{nsource, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new Infect0()));
-            } else {
-                bg.AddTransition({source_idx, target_idx, 2},
-                    {Edge{nsource, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new Infect1()));
-            }
-        }
-    }
+    bg.AddTransition({source_idx, source_idx, 3},
+      {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, -1},
+       Edge{SIRPlace{source_idx, 3}, 1}},
+      std::unique_ptr<SIRTransition>(new Notify()));
+  }
 }
 
 
+
 void BuildGrowthSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-      double cutoff, RandGen& rng) {
-    using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
-    int64_t cnt=std::lround(std::sqrt(pairwise.size()));
+    double cutoff, RandGen& rng) {
+  using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
+  int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
-    for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
-        for (int64_t dcreate_idx=0; dcreate_idx<3; ++dcreate_idx) {
-            bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
-        }
+  for (int64_t pcreate_idx=0; pcreate_idx<cnt; ++pcreate_idx) {
+    for (int64_t dcreate_idx=0; dcreate_idx<4; ++dcreate_idx) {
+      bg.AddPlace( {pcreate_idx, dcreate_idx}, 0);
+    }
+  }
+
+  for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
+    auto source=SIRPlace{source_idx, 1}; // infected
+    for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
+      auto susceptible=SIRPlace{target_idx, 0};
+      auto infected=SIRPlace{target_idx, 1};
+      if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+        bg.AddTransition({source_idx, target_idx, 1},
+          {Edge{source, -1}, Edge{susceptible, -1},
+          Edge{infected, 1}},
+          std::unique_ptr<SIRTransition>(new ExcessInfect0()));
+      } else {
+        bg.AddTransition({source_idx, target_idx, 1},
+          {Edge{source, -1}, Edge{susceptible, -1},
+          Edge{infected, 1}},
+          std::unique_ptr<SIRTransition>(new ExcessInfect1()));
+      }
     }
 
-    for (int64_t source_idx=0; source_idx<cnt; ++source_idx) {
-        auto source=SIRPlace{source_idx, 1};
-        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
-            auto susceptible=SIRPlace{target_idx, 0};
-            auto infected=SIRPlace{target_idx, 1};
-            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
-                bg.AddTransition({source_idx, target_idx, 1},
-                    {Edge{source, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new ExcessInfect0()));
-            } else {
-                bg.AddTransition({source_idx, target_idx, 1},
-                    {Edge{source, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new ExcessInfect1()));
-            }
-        }
-
-        bg.AddTransition({source_idx, source_idx, 3},
-          {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, 1}},
-          std::unique_ptr<SIRTransition>(new Notify()));
-
-        auto nsource=SIRPlace{source_idx, 2};
-        for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
-            auto susceptible=SIRPlace{target_idx, 0};
-            auto infected=SIRPlace{target_idx, 1};
-            if (pairwise[source_idx+cnt*target_idx]<cutoff) {
-                bg.AddTransition({source_idx, target_idx, 2},
-                    {Edge{nsource, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new ExcessInfect0()));
-            } else {
-                bg.AddTransition({source_idx, target_idx, 2},
-                    {Edge{nsource, -1}, Edge{susceptible, -1},
-                    Edge{infected, 1}},
-                    std::unique_ptr<SIRTransition>(new ExcessInfect1()));
-            }
-        }
-    }
+    bg.AddTransition({source_idx, source_idx, 3},
+      {Edge{source, -1}, Edge{SIRPlace{source_idx, 2}, -1},
+       Edge{SIRPlace{source_idx, 3}, 1}},
+      std::unique_ptr<SIRTransition>(new Notify()));
+  }
 }
 
 
@@ -354,7 +334,6 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
 
-
   static const std::map<Parameter,std::string> par_key= {
     {Parameter::N0, "N0"},
     {Parameter::beta0, "beta0"},
@@ -384,6 +363,8 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
     } else {
       Add<0>(state.marking, gspn.PlaceVertex({init_idx, 1}), AnonymousToken{});
     }
+    // Token in undetected place.
+    Add<0>(state.marking, gspn.PlaceVertex({init_idx, 2}), AnonymousToken{});
   }
 
   //using Propagator=PropagateCompetingProcesses<int64_t,RandGen>;

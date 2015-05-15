@@ -63,22 +63,22 @@ bugtest <- function(n) {
 }
 
 
-create.web.movie <- function(single_result) {
-  initial_marking<-factor(rep('s', res$locations$n), levels=c('s', 'i', 'n'))
-  locations<-ppp(res$locations$x, res$locations$y, marks=initial_marking)
-  event_cnt<-dim(res$events)[[1]]
+create.web.movie <- function(locations, events) {
+  initial_marking<-factor(rep('s', locations$n), levels=c('s', 'i', 'n'))
+  locations<-ppp(locations$x, locations$y, marks=initial_marking)
+  event_cnt<-dim(events)[[1]]
   cat("There were", event_cnt, "events\n")
 
   saveHTML({
      for (i in 1:event_cnt) {
-        event_tag<-res$events$event[[i]]
+        event_tag<-events$event[[i]]
         if (event_tag==1 || event_tag==2) {
-          locations$marks[[res$events$whom[[i]]+1]]='i'
+          locations$marks[[events$whom[[i]]+1]]='i'
         } else if (event_tag==3) {
-          locations$marks[[res$events$whom[[i]]+1]]='n'
+          locations$marks[[events$whom[[i]]+1]]='n'
         } else if (event_tag==4) {
           # Returning to susceptible from infected.
-          locations$marks[[res$events$whom[[i]]+1]]='s'
+          locations$marks[[events$whom[[i]]+1]]='s'
         }
         plot(locations, cols=c("blue", "red", "black"))
      }
@@ -94,11 +94,15 @@ end.times <- function(locations, events) {
 }
 
 
-single.trajectory <- function(filename, which=-1) {
+get.single.trajectory <- function(filename, which=1) {
   env <- new.env(parent=emptyenv())
+  env$idx <- 1
   get.trajectory <- function(locations, arg) {
-    env$locations <- locations
-    env$trajectory <- arg
+    if (env$idx==which) {
+      env$locations <- locations
+      env$trajectory <- arg
+    }
+    env$idx <- env$idx + 1
   }
   foreach.trajectory(filename, get.trajectory, 1)
   list(locations=env$locations, trajectory=env$trajectory)
@@ -124,7 +128,7 @@ infection.times.hazard <- function(filename) {
     env$times[[env$idx]] <- time_to_infect
     env$idx <- env$idx + 1
   }
-  foreach.trajectory(filename, get.times, 3)
+  foreach.trajectory(filename, get.times)
   all_times <- unlist(env$times)
   surv.object <- Surv(all_times, rep(1, length(all_times)))
   x.fit<-survfit(surv.object ~ 1)
@@ -137,7 +141,9 @@ infection.times.hazard <- function(filename) {
 }
 
 # res<-bugtest(1000)
-res<-sirgenerate(1000, 10)
-warnings()
+#res<-sirgenerate(1000, 30)
+# warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
-#infection.times.hazard("z.h5")
+# infection.times.hazard("z.h5")
+t<-get.single.trajectory("z.h5", 1)
+create.web.movie(t$locations, t$trajectory)
