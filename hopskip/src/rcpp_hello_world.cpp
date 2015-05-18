@@ -1,4 +1,5 @@
 #include <fstream>
+#include <set>
 #include "boost/any.hpp"
 #include "Rcpp.h"
 #include "simple_hazard.hpp"
@@ -6,6 +7,7 @@
 #include "excess_growth.hpp"
 #include "rng.hpp"
 #include "smv.hpp"
+#include "segment_intersect.hpp"
 
 
 using namespace Rcpp;
@@ -72,6 +74,88 @@ struct TKeyWriter {
       keyfile << id << "\t" << tid << std::endl;
   }
 };
+
+
+
+/*! How many times does the bisector of two units cross a street?
+ *  
+ *  sunits = matrix of (x,y) for unit locations.
+ *  spoints = matrix of (x,y) of endpoints of streets
+ *  sstreets = matrix of (p0, p1) index into endpoints defining a street.
+ *
+ *  \returns Number of crossings for each pair, ordered as a flattened
+ *           two-dimensional matrix, suitable for adding to pairwise_distance. 
+ */
+// [[Rcpp::export]]
+SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
+    SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
+  afidd::LogInit("degug");
+
+  NumericVector unitsx(sunitsx);
+  NumericVector unitsy(sunitsy);
+  NumericVector endpointsx(sendpointsx);
+  NumericVector endpointsy(sendpointsy);
+  NumericVector streetsp0(sstreetsp0);
+  NumericVector streetsp1(sstreetsp1);
+  assert(unitsx.size()==unitsy.size());
+  assert(endpointsx.size()==endpointsy.size());
+  assert(streetsp0.size()==streetsp1.size());
+
+  size_t unit_cnt=unitsx.size();
+  size_t dist_cnt=unit_cnt*(unit_cnt-1)/2;
+  size_t street_cnt=streetsp0.size();
+  std::vector<std::pair<double,double>> points(unit_cnt+endpointsx.size());
+  for (size_t uidx=0; uidx<unitsx.size(); ++uidx) {
+    points.emplace_back(unitsx[uidx], unitsy[uidx]);
+  }
+  for (size_t eidx=0; eidx<endpointsx.size(); ++eidx) {
+    points.emplace_back(endpointsx[eidx], endpointsy[eidx]);
+  }
+  std::vector<std::pair<size_t,size_t>> segments(dist_cnt+street_cnt);
+  for (size_t source_idx=0; source_idx<unit_cnt; ++source_idx) {
+    for (size_t target_idx=source_idx+1; target_idx<unit_cnt; ++target_idx) {
+      segments.emplace_back(source_idx, target_idx);
+    }
+  }
+  for (size_t street_idx=0; street_idx<street_cnt; ++street_idx) {
+    // -1 to move to 0-based indexing
+    segments.emplace_back(streetsp0[street_idx]-1, streetsp1[street_idx]-1);
+  }
+
+  std::vector<std::pair<double,double>> intpoints;
+    std::multimap<size_t,size_t> intverts;
+    std::tie(intpoints, intverts)=segment_intersections(points, segments);
+
+  IntegerVector crossings(unit_cnt*unit_cnt);
+
+  std::multimap<size_t,size_t>::const_iterator vert_cursor;
+  vert_cursor=intverts.begin();
+  while (vert_cursor!=intverts.end()) {
+    size_t point_idx=vert_cursor->first;
+    std::set<size_t> street;
+    std::set<size_t> arc;
+    while (vert_cursor!=intverts.end() && vert_cursor->first==point_idx) {
+      size_t segment_idx=vert_cursor->second;
+      if (segment_idx<dist_cnt) {
+        arc.insert(segment_idx);
+      } else {
+        street.insert(segment_idx);
+      }
+      ++vert_cursor;
+    }
+    if (arc.size()>0 && street.size()>0) {
+      for (size_t crossed : arc) {
+        const auto& arcref=segments[crossed];
+        // Add to i,j and j,i.
+        crossings[arcref.first*unit_cnt + arcref.second]+=1;
+        crossings[arcref.second*unit_cnt + arcref.first]+=1;
+      }
+    }
+  }
+
+  return crossings;
+}
+
 
 // [[Rcpp::export]]
 SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,

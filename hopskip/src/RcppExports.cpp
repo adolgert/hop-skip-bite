@@ -5,15 +5,31 @@
 
 using namespace Rcpp;
 
+// intersections
+SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx, SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1);
+RcppExport SEXP hopskip_intersections(SEXP sunitsxSEXP, SEXP sunitsySEXP, SEXP sendpointsxSEXP, SEXP sendpointsySEXP, SEXP sstreetsp0SEXP, SEXP sstreetsp1SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type sunitsx(sunitsxSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sunitsy(sunitsySEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sendpointsx(sendpointsxSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sendpointsy(sendpointsySEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sstreetsp0(sstreetsp0SEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sstreetsp1(sstreetsp1SEXP);
+    __result = Rcpp::wrap(intersections(sunitsx, sunitsy, sendpointsx, sendpointsy, sstreetsp0, sstreetsp1));
+    return __result;
+END_RCPP
+}
 // simple_hazard
-SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS, Function callback);
+SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS, Rcpp::Function callback);
 RcppExport SEXP hopskip_simple_hazard(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP, SEXP callbackSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
     Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
-    Rcpp::traits::input_parameter< Function >::type callback(callbackSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Function >::type callback(callbackSEXP);
     __result = Rcpp::wrap(simple_hazard(pairwise_distanceS, parametersS, callback));
     return __result;
 END_RCPP
