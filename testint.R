@@ -1,6 +1,8 @@
 # Test line intersection
 
 library("spatstat")
+library("deldir")
+library("hopskip")
 
 
 center.point <- function(spatdata) {
@@ -11,43 +13,64 @@ center.point <- function(spatdata) {
 gen_points <- function(house_cnt) {
   X<-rHardcore(house_cnt, 0.02, square(1))
   dx<-pairdist(X)
-  start<-center.point(X)
-  write.table(X, "points.txt", sep=" ", row.names=FALSE, col.names=FALSE)
-  cnt=length(X)
-  print(cnt)
-  segments<-matrix(nrow=cnt*(cnt-1)/2, ncol=2)
-  print(dim(segments))
-  running_idx <- 1
-  for (i in 1:(cnt-1)) {
-  	for (j in (i+1):cnt) {
-  		print(paste(running_idx, i, j))
-  	  segments[running_idx, 1] <- i-1
-  	  segments[running_idx, 2] <- j-1
-  	  running_idx <- running_idx + 1
-  	}
+  X
+}
+
+
+gen_streets <- function(block_cnt) {
+  X <- rHardcore(block_cnt, 0.05, square(1))
+  voronoi<-deldir(X, rw=c(0, 1, 0, 1))
+  dsgs<-voronoi$dirsgs
+  pt_cnt=max(dsgs$ind1)
+  pt_cnt=max(pt_cnt, max(dsgs$ind2))
+  print(pt_cnt)
+  x <- vector(mode="numeric", pt_cnt)
+  y <- vector(mode="numeric", pt_cnt)
+  for (vcp_idx in 1:nrow(dsgs)) {
+    x[dsgs$ind1[vcp_idx]] <- dsgs$x1[vcp_idx]
+    y[dsgs$ind1[vcp_idx]] <- dsgs$y1[vcp_idx]
+    x[dsgs$ind2[vcp_idx]] <- dsgs$x2[vcp_idx]
+    y[dsgs$ind2[vcp_idx]] <- dsgs$y2[vcp_idx]
   }
-  write.table(segments, "lines.txt", sep=" ", row.names=FALSE, col.names=FALSE)
-  list(points=X, segments=segments)
-}
-
-read.intersections <- function() {
-  # +1 to convert from 0-based indexing of vertices.
-  ll<-read.table("intlines.txt") + 1
-  ip<-read.table("intpoints.txt")
-  pxy<-ppp(ip$V1, ip$V2)
-  list(points=pxy, segments=ll)
+  list(x=x, y=y, p0=dsgs$ind1, p1=dsgs$ind2, delsgs=dsgs)
 }
 
 
-make.plot <- function(ps, is) {
+
+
+make.plot <- function(houses, streets, crossings) {
+  house_cnt<-length(houses$x)
+  stopifnot(length(crossings)==house_cnt*house_cnt)
+  p1x=vector(mode="numeric", house_cnt*house_cnt)
+  p1y=vector(mode="numeric", house_cnt*house_cnt)
+  p2x=vector(mode="numeric", house_cnt*house_cnt)
+  p2y=vector(mode="numeric", house_cnt*house_cnt)
+  conn_idx<-1
+  for (i in 1:(house_cnt-1)) {
+    for (j in (i+1):house_cnt) {
+      if (crossings[i*house_cnt+j]>0) {
+        p1x[conn_idx] <- houses$x[i]
+        p1y[conn_idx] <- houses$y[i]
+        p2x[conn_idx] <- houses$x[j]
+        p2y[conn_idx] <- houses$y[j]
+        conn_idx <- conn_idx + 1
+      }
+    }
+  }
+  conn_cnt <- conn_idx - 1
+  print(paste("There are", conn_cnt, "crossings"))
+
 	pdf("points.pdf")
 	plot(0:1, 0:1, type="n")
-	points(ps$points, col="black")
-	points(is$points, col="red")
+	points(houses, col="black")
+  delsgs=streets$delsgs
+  segments(delsgs$x1, delsgs$y1, delsgs$x2, delsgs$y2, col="blue")
+  segments(p1x, p1y, p2x, p2y, col="red")
 	dev.off()
 }
 
-ps<-gen_points(10)
-system("./segint")
-is<-read.intersections()
-make.plot(ps, is)
+houses<-gen_points(50)
+streets<-gen_streets(5)
+crossings<-intersections(houses$x, houses$y, streets$x, streets$y,
+  streets$p0, streets$p1)
+make.plot(houses, streets, crossings)

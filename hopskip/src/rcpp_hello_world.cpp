@@ -89,7 +89,7 @@ struct TKeyWriter {
 // [[Rcpp::export]]
 SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
-  afidd::LogInit("degug");
+  afidd::LogInit("debug");
 
   NumericVector unitsx(sunitsx);
   NumericVector unitsy(sunitsy);
