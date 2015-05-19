@@ -191,11 +191,21 @@ struct StatusLoc {
 
 void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
     const std::vector<Segment>& lines, std::vector<Point>& points,
-    std::multimap<PointIdx,SegmentIdx,IntersectQueueSort> Q,
+    std::multimap<PointIdx,SegmentIdx,IntersectQueueSort>& Q,
     std::multimap<PointIdx,SegmentIdx>& intersections,
     std::vector<std::pair<double,double>>& intersection_points) {
   const Segment& sl=lines[sl_idx];
   const Segment& sr=lines[sr_idx];
+  // If they share an endpoint, that endpoint is in Q already.
+  std::set<SegmentIdx> same_points;
+  same_points.insert(sl.p0);
+  same_points.insert(sl.p1);
+  same_points.insert(sr.p0);
+  same_points.insert(sr.p1);
+  if (same_points.size()<4) {
+    std::cout << "FindNewEvent: Shared points" << std::endl;
+    return;
+  }
   if (Intersect(points[sl.p0], points[sl.p1], points[sr.p0], points[sr.p1])) {
     Point intersection;
     bool int_found;
@@ -206,7 +216,7 @@ void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
       // If the intersection is not yet present in event queue.
       // Stay away from comparing doubles. Just look for any vertex which
       // contains an intersection of both segments.
-      bool already_entered=false;
+      bool unseen_intersection=true;
       auto q_cursor=Q.cbegin();
       while (q_cursor!=Q.cend()) {
         auto found_one=std::find_if(q_cursor, Q.cend(),
@@ -218,24 +228,25 @@ void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
           ++found_one;
           while (found_one!=Q.cend() && found_one->first==v) {
             if (found_one->second==sl_idx || found_one->second==sr_idx) {
-              already_entered=true;
+              unseen_intersection=false;
             }
             ++found_one;
           }
         }
         q_cursor=found_one;
       }
-      if (!already_entered) {
-        std::cout << "Adding intersection ("<<intersection.x<<"<"
-          <<intersection.y<<") ("<<sl_idx<<","<<sr_idx<<")"<< std::endl;
+      if (unseen_intersection) {
         points.push_back(intersection);
         size_t added_idx=points.size()-1;
         Q.emplace(added_idx, sl_idx);
         Q.emplace(added_idx, sr_idx);
-        intersection_points.emplace_back(intersection.x, intersection.y);
-        size_t iadded_idx=intersection_points.size()-1;
-        intersections.emplace(iadded_idx, sl_idx);
-        intersections.emplace(iadded_idx, sr_idx);
+        std::cout << "Adding to queue point "<<added_idx
+          <<" ("<<intersection.x<<","
+          <<intersection.y<<") ("<<sl_idx<<","<<sr_idx<<")"<< std::endl;
+        // intersection_points.emplace_back(intersection.x, intersection.y);
+        // size_t iadded_idx=intersection_points.size()-1;
+        // intersections.emplace(iadded_idx, sl_idx);
+        // intersections.emplace(iadded_idx, sr_idx);
       } else {
         std::cout << "Intersection already added" << std::endl;
       }
@@ -297,12 +308,49 @@ void graphical(const std::vector<Point>& points,
   sc << std::endl;
 }
 
+std::tuple<std::vector<std::pair<double,double>>,
+  std::multimap<PointIdx,SegmentIdx>>
+segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
+    const std::vector<std::pair<size_t,size_t>>& inlines) {
+  std::multimap<PointIdx,SegmentIdx> intersections;
+  std::vector<std::pair<double,double>> intersection_points;
+  // Make a copy so that we can add points for intersections to the list.
+  for (size_t s0idx=0; s0idx<inlines.size()-1; ++s0idx) {
+    size_t p0_idx=inlines[s0idx].first;
+    size_t p1_idx=inlines[s0idx].second;
+    Point p0(inpoints[p0_idx]);
+    Point p1(inpoints[p1_idx]);
+    for (size_t s1idx=s0idx+1; s1idx<inlines.size(); ++s1idx) {
+      size_t p2_idx=inlines[s1idx].first;
+      size_t p3_idx=inlines[s1idx].second;
+      Point p2(inpoints[p2_idx]);
+      Point p3(inpoints[p3_idx]);
+      if (p0_idx!=p2_idx && p0_idx!=p3_idx && p1_idx!=p2_idx && p1_idx!=p3_idx){
+        if (Intersect(p0, p1, p2, p3)) {
+          Point intersection_pt;
+          bool found;
+          std::tie(intersection_pt, found)=Intersection(p0, p1, p2, p3);
+          if (found) {
+            intersection_points.push_back(std::make_pair(
+              intersection_pt.x, intersection_pt.y));
+            intersections.emplace(intersection_points.size()-1, s0idx);
+            intersections.emplace(intersection_points.size()-1, s1idx);
+          } else {
+            std::cout << "Couldn't find intersection" << std::endl;
+          }
+        }
+      }
+    }
+  }
+  return std::make_tuple(intersection_points, intersections);
+}
+
 /*! Find intersections among line segments.
  *  Reading "Computational Geometry" by Berg et al., Chapter 2.
  */
 std::tuple<std::vector<std::pair<double,double>>,
   std::multimap<PointIdx,SegmentIdx>>
-segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
+segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoints,
     const std::vector<std::pair<size_t,size_t>>& inlines) {
   // Make a copy so that we can add points for intersections to the list.
   std::vector<Point> points(inpoints.begin(), inpoints.end());
@@ -311,13 +359,17 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
     << std::endl;
 
   std::cout << "Seen points ";
+  size_t sh_pts=0;
   for (auto pp : points) {
-    std::cout << '(' << pp.x << ',' << pp.y << ") ";
+    std::cout << sh_pts << "-(" << pp.x << ',' << pp.y << ") ";
+    ++sh_pts;
   }
   std::cout << std::endl;
   std::cout << "Seen lines ";
+  size_t sh_lines=0;
   for (auto lls : lines) {
-    std::cout << '(' << lls.p0 << ',' << lls.p1 << ") ";
+    std::cout << sh_lines<<"-(" << lls.p0 << ',' << lls.p1 << ") ";
+    ++sh_lines;
   }
   std::cout << std::endl;
 
@@ -361,48 +413,51 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
     std::cout << std::endl << "queue length " << Q.size() << std::endl;
 
     // 1. Let U(p) be all segments whose upper point is p.
-    std::cout << "U(p) have p=" << p <<" as upper point" << std::endl;
-    std::set<SegmentIdx> U;
+    using SegSet=std::set<SegmentIdx>;
+    SegSet L;
+    SegSet C;
+    SegSet U;
     for (SegmentIdx si : p_segments) {
       const auto& segment=lines[si];
-      std::cout << "In U? ("<<segment.p0<<", "<<segment.p1<<")"<<std::endl;
       if (UpperPoint(segment, points) == p) {
         std::cout << "Upper of "<<si<<"=("<<segment.p0<<","<<segment.p1<<") is "
           << p << std::endl;
         U.insert(si);
+      } else if (LowerPoint(segment, points) == p) {
+        std::cout << "Lower of "<<si<<"=("<<segment.p0<<","<<segment.p1<<") is "
+          << p << std::endl;
+        L.insert(si);
       } else {
-        std::cout << "Not upper of "<<si<<"=("<<segment.p0<<","<<segment.p1
-          <<") is" << p << std::endl;
+        std::cout << "Middle of "<<si<<"=("<<segment.p0<<","<<segment.p1
+          <<") is " << p << std::endl;
+        C.insert(si);
       }
     }
+    std::set<SegmentIdx> LUC(U.begin(), U.end());
+    LUC.insert(L.begin(), L.end());
+    LUC.insert(C.begin(), C.end());
 
     // 2. Find all line segments in T that contain p.
     // L are segments whose lower point is p. 
     // Store the iterator, too, for step 5.
     // C(p) are segments that contain p in their interior.
-    using LowerSet=std::set<SegmentIdx>;
-    LowerSet L;
-    std::set<SegmentIdx> C;
     std::vector<StatusType::iterator> LC_iters;
     StatusType::iterator Titer=std::find_if(T.begin(), T.end(),
-      [p, &lines](const StatusType::value_type& tentry)->bool {
-        return tentry.second.first==p ||
-          lines[tentry.second.second].Contains(p);
+      [&LUC](const StatusType::value_type& tentry)->bool {
+        return LUC.find(tentry.second.second)!=LUC.end();
       });
     // These segments are guaranteed to be adjacent in T.
     while (Titer!=T.end() &&
-        (Titer->second.first==p || lines[Titer->second.second].Contains(p))) {
+        LUC.find(Titer->second.second)!=LUC.end()) {
       std::set<SegmentIdx>::iterator where;
       bool newval;
       if (LowerPoint(lines.at(Titer->second.second), points)==p) {
-        std::cout << "Insert " << Titer->second.second << " into L(p)" << std::endl;
-        std::tie(where, newval)=L.emplace(Titer->second.second);
+        std::cout << "T has lower of edge "<<Titer->second.second<<std::endl;
         LC_iters.push_back(Titer);
       } else if (UpperPoint(lines.at(Titer->second.second), points)==p) {
-        ; // Already have upper points
+        // Already have upper points
       } else { // must be middle point.
-        std::cout <<"Middle point "<<Titer->second.second << "into C(p)"<<std::endl;
-        C.emplace(Titer->second.second);
+        std::cout << "T has middle of edge "<< Titer->second.second << std::endl; 
         LC_iters.push_back(Titer);
       }
       ++Titer;
@@ -410,14 +465,11 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
 
     // 3-4. If L, U, C contain more than one segment. Report as intersection.
     // Insert them in a set in case L and U point to the same segment.
-    std::set<SegmentIdx> LUC(U.begin(), U.end());
-    LUC.insert(L.begin(), L.end());
-    LUC.insert(C.begin(), C.end());
     if (LUC.size()>1) {
       PointIdx shared_vertex=intersection_points.size();
       intersection_points.push_back(std::make_pair(points[p].x, points[p].y));
-      std::cout << "intersection " << shared_vertex << " (" << points[p].x
-        << ", " << points[p].y << ")" << std::endl;
+      std::cout << "LUC intersection " << shared_vertex << " (" << points[p].x
+        << ", " << points[p].y << ") " << LUC.size() << std::endl;
       for (auto ls : LUC) {
         intersections.emplace(shared_vertex, ls);
       }
@@ -425,21 +477,9 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
 
     // 5. Delete L and C from T.
     for (auto lc_del : LC_iters) {
+      std::cout << "Removing from T edge "<<lc_del->second.second<<std::endl;
       T.erase(lc_del);
     }
-
-    // std::set<SegmentIdx> LC(L.begin(), L.end());
-    // LC.insert(C.begin(), C.end());
-    // for (auto del_l : LC) {
-    //   auto found_segment=std::find_if(T.begin(), T.end(),
-    //     [del_l](const StatusType::value_type& v)->bool {
-    //       return v.second.second==del_l;
-    //     });
-    //   if (found_segment!=T.end()) {
-    //     std::cout << "Delete LC from T "<< del_l << std::endl;
-    //     T.erase(found_segment);
-    //   }
-    // }
 
     // 6. 7. Insert U and C into T.
     // Store the leftmost and rightmost of U for use in 11.

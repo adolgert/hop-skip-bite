@@ -122,6 +122,7 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
   std::cout << std::endl;
   // Make line segments
   std::vector<std::pair<size_t,size_t>> segments(dist_cnt+street_cnt);
+  std::cout << "segments between pairs of units" << std::endl;
   // Add segments between all pairs of units.
   size_t seg_idx=0;
   for (size_t source_idx=0; source_idx<unit_cnt-1; ++source_idx) {
@@ -142,6 +143,7 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     assert(seg_idx==dist_cnt+street_cnt);
   }
 
+  std::cout << "Calling segment_intersections"<<std::endl;
   std::vector<std::pair<double,double>> intpoints;
     std::multimap<size_t,size_t> intverts;
     std::tie(intpoints, intverts)=segment_intersections(points, segments);

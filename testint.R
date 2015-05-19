@@ -21,7 +21,10 @@ gen_streets <- function(block_cnt) {
   voronoi<-deldir(X, rw=c(0, 1, 0, 1))
   dsgs<-voronoi$dirsgs
   # They give points as x, y, not as a complex.
-  # Find the ones that are distinct.
+  # Find the ones that are distinct. We have an unusual advantage in
+  # that we can calculate the number of distinct points there should
+  # be, so a stable method is to find every point distance, sort them,
+  # and pick a cutoff tolerance.
   print(dsgs)
   boundary_cnt <- 0
   edge_cnt <- nrow(dsgs)
@@ -54,8 +57,10 @@ gen_streets <- function(block_cnt) {
   #print(dx)
   tolerance=0
   if (dx[zero_cnt]>0) {
-    tolerance=(dx[zero_cnt]*dx[zero_cnt+1])^2
+    # geometric mean, then squared to compare with squared distance.
+    tolerance=dx[zero_cnt]*dx[zero_cnt+1]
   } else {
+    # minimum size, squared to compare with squared distance.
     tolerance=0.1*(dx[zero_cnt+1])^2
   }
   print(paste("tolerance", tolerance))
@@ -216,6 +221,6 @@ gen.sample <- function() {
   make.plot(houses, streets, crossings)
 }
 
-#gen.world()
-plot.graphical()
+gen.world()
+#plot.graphical()
 
