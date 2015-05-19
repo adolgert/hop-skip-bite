@@ -2,6 +2,7 @@
 #include <fstream>
 
 #include <set>
+#include <sstream>
 #include <algorithm>
 #include <cmath>
 #include <cassert>
@@ -138,35 +139,28 @@ struct IntersectQueueSort {
 };
 
 
+/*! Left-to-right ordering just below the sweep line.
+ */
 struct StatusLoc {
   double x;
-  double y;
   double radians; // first and second quadrants, 0 to pi, excluding 0.
   bool operator<(const StatusLoc& slb) const {
-    if (y!=slb.y) {
-      return y > slb.y;
+    if (x!=slb.x) {
+      return x < slb.x;
     } else {
-      if (x!=slb.x) {
-        return x < slb.x;
-      } else {
-        return radians < slb.radians;
-      }
+      return radians < slb.radians;
     }
   }
   bool operator>(const StatusLoc& slb) const {
-    if (y!=slb.y) {
-      return y < slb.y;
+    if (x!=slb.x) {
+      return x > slb.x;
     } else {
-      if (x!=slb.x) {
-        return x > slb.x;
-      } else {
-        return radians > slb.radians;
-      }
+      return radians > slb.radians;
     }
   }
   friend inline
   std::ostream& operator<<(std::ostream& os, const StatusLoc& sl) {
-    return os << '(' << sl.x << ", " << sl.y << ", " << sl.radians
+    return os << '(' << sl.x << ", " << sl.radians
       << ')';
   }
 };
@@ -179,21 +173,21 @@ struct StatusLoc {
  *  to the left just below the sweep line. A zero slope is defined as
  *  coming last in the list.
  */
-struct StatusSort {
-  const std::vector<Point>& points;
-  const std::vector<Segment>& lines;
-  StatusSort(const std::vector<Point>& points,
-      const std::vector<Segment>& lines) :
-    points(points), lines(lines) {}
+// struct StatusSort {
+//   const std::vector<Point>& points;
+//   const std::vector<Segment>& lines;
+//   StatusSort(const std::vector<Point>& points,
+//       const std::vector<Segment>& lines) :
+//     points(points), lines(lines) {}
 
-  bool operator()(const StatusLoc& a, const StatusLoc& b) {
-    bool higher_lefter= a.y>b.y;
-    if (a.y==b.y) {
-      higher_lefter=a.radians<b.radians;
-    }
-    return higher_lefter;
-  }
-};
+//   bool operator()(const StatusLoc& a, const StatusLoc& b) {
+//     bool higher_lefter= a.y>b.y;
+//     if (a.y==b.y) {
+//       higher_lefter=a.radians<b.radians;
+//     }
+//     return higher_lefter;
+//   }
+// };
 
 void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
     const std::vector<Segment>& lines, std::vector<Point>& points,
@@ -232,7 +226,8 @@ void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
         q_cursor=found_one;
       }
       if (!already_entered) {
-        std::cout << "Adding intersection" << std::endl;
+        std::cout << "Adding intersection ("<<intersection.x<<"<"
+          <<intersection.y<<") ("<<sl_idx<<","<<sr_idx<<")"<< std::endl;
         points.push_back(intersection);
         size_t added_idx=points.size()-1;
         Q.emplace(added_idx, sl_idx);
@@ -248,8 +243,58 @@ void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
       std::cout << "Segment intersection above or left of p" << std::endl;
     }
   } else {
-    std::cout << "Segments cannot intersect by CCW." << std::endl;
+    std::cout << "Segments cannot intersect by CCW. "
+      <<sl_idx <<" " << sr_idx << std::endl;
   }
+}
+
+
+void graphical(const std::vector<Point>& points,
+    const std::vector<Segment>& lines,
+    const std::map<StatusLoc,std::pair<PointIdx,SegmentIdx>>& T,
+    PointIdx p, std::set<SegmentIdx>& L, std::set<SegmentIdx>& U,
+    std::set<SegmentIdx>& C,
+    const std::vector<std::pair<double,double>>& intpts) {
+  std::ofstream slines("lines.txt", std::fstream::out | std::fstream::trunc);
+  for (auto l : lines) {
+    slines << l.p0 << " " << l.p1 << std::endl;
+  }
+  std::ofstream spoints("points.txt", std::fstream::out | std::fstream::trunc);
+  for (auto pts : points) {
+    spoints << pts.x << " " << pts.y << std::endl;
+  }
+  std::ofstream sipoints("intpoints.txt", std::fstream::out | std::fstream::trunc);
+  for (auto ipts : intpts) {
+    sipoints << ipts.first << " " << ipts.second << std::endl;
+  }
+  std::ofstream scurpoint("current.txt", std::fstream::out | std::fstream::app);
+  scurpoint << p << std::endl;
+
+  std::ofstream ststatus("tstatus.txt", std::fstream::out | std::fstream::app);
+  ststatus << T.size();
+  for (auto t : T) {
+    ststatus << " " << t.first.x;
+  }
+  ststatus << std::endl;
+
+  std::ofstream sl("l.txt", std::fstream::out | std::fstream::app);
+  sl << L.size();
+  for (auto l : L) {
+    sl << " " << l;
+  }
+  sl << std::endl;
+  std::ofstream su("u.txt", std::fstream::out | std::fstream::app);
+  su << U.size();
+  for (auto u : U) {
+    su << " " << u;
+  }
+  su << std::endl;
+  std::ofstream sc("c.txt", std::fstream::out | std::fstream::app);
+  sc << C.size();
+  for (auto c : C) {
+    sc << " " << c;
+  }
+  sc << std::endl;
 }
 
 /*! Find intersections among line segments.
@@ -265,13 +310,24 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
   std::cout << "Copied inputs " << inpoints.size() << ' ' << inlines.size()
     << std::endl;
 
+  std::cout << "Seen points ";
+  for (auto pp : points) {
+    std::cout << '(' << pp.x << ',' << pp.y << ") ";
+  }
+  std::cout << std::endl;
+  std::cout << "Seen lines ";
+  for (auto lls : lines) {
+    std::cout << '(' << lls.p0 << ',' << lls.p1 << ") ";
+  }
+  std::cout << std::endl;
+
   // Event queue starts with all segment endpoints but will
   // also include future intersections. It is sorted so that
   // largest y come first, and, for same y, smallest x come first.
   std::multimap<PointIdx,SegmentIdx,IntersectQueueSort> Q(
       (IntersectQueueSort(points))); // Event queue.
   // Status of the algorithm.
-  using StatusType=std::map<StatusLoc,SegmentIdx>;
+  using StatusType=std::map<StatusLoc,std::pair<PointIdx,SegmentIdx>>;
   StatusType T;
   // Outputs return to same datatypes passed in.
   std::multimap<PointIdx,SegmentIdx> intersections;
@@ -291,17 +347,18 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
     auto p=next_event->first;
     std::set<SegmentIdx> p_segments;
     auto r=Q.equal_range(p);
-    std::cout << "Line segments associated with " << p << std::endl;
+    std::cout << "Line segments associated with " << p << ": ";
     for (auto ri=r.first; ri!=r.second; ++ri) {
-      std::cout << '\t' << ri->second << std::endl;
+      std::cout << ri->second << ' ';
       p_segments.insert(ri->second);
     }
+    std::cout << std::endl;
     Q.erase(r.first, r.second);
     std::cout << "next event p=" << p << " segs=";
     for (auto ps : p_segments) {
       std::cout << ps << ", ";
     }
-    std::cout << "queue length " << Q.size() << std::endl;
+    std::cout << std::endl << "queue length " << Q.size() << std::endl;
 
     // 1. Let U(p) be all segments whose upper point is p.
     std::cout << "U(p) have p=" << p <<" as upper point" << std::endl;
@@ -310,56 +367,79 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
       const auto& segment=lines[si];
       std::cout << "In U? ("<<segment.p0<<", "<<segment.p1<<")"<<std::endl;
       if (UpperPoint(segment, points) == p) {
-        std::cout << "Insert " << si << " into U(p)" << std::endl;
+        std::cout << "Upper of "<<si<<"=("<<segment.p0<<","<<segment.p1<<") is "
+          << p << std::endl;
         U.insert(si);
+      } else {
+        std::cout << "Not upper of "<<si<<"=("<<segment.p0<<","<<segment.p1
+          <<") is" << p << std::endl;
       }
     }
 
     // 2. Find all line segments in T that contain p.
     // L are segments whose lower point is p. 
     // Store the iterator, too, for step 5.
+    // C(p) are segments that contain p in their interior.
     using LowerSet=std::set<SegmentIdx>;
     LowerSet L;
+    std::set<SegmentIdx> C;
+    std::vector<StatusType::iterator> LC_iters;
     StatusType::iterator Titer=std::find_if(T.begin(), T.end(),
-      [p, &lines](const std::pair<StatusLoc,SegmentIdx>& tentry)->bool {
-        const auto& l=lines.at(tentry.second);
-        return l.Contains(p);
+      [p, &lines](const StatusType::value_type& tentry)->bool {
+        return tentry.second.first==p ||
+          lines[tentry.second.second].Contains(p);
       });
     // These segments are guaranteed to be adjacent in T.
-    while (Titer!=T.end() && lines.at(Titer->second).Contains(p)) {
-      if (LowerPoint(lines.at(Titer->second), points)==p) {
-        std::cout << "Insert " << Titer->second << " into L(p)" << std::endl;
-        L.emplace(Titer->second);
+    while (Titer!=T.end() &&
+        (Titer->second.first==p || lines[Titer->second.second].Contains(p))) {
+      std::set<SegmentIdx>::iterator where;
+      bool newval;
+      if (LowerPoint(lines.at(Titer->second.second), points)==p) {
+        std::cout << "Insert " << Titer->second.second << " into L(p)" << std::endl;
+        std::tie(where, newval)=L.emplace(Titer->second.second);
+        LC_iters.push_back(Titer);
+      } else if (UpperPoint(lines.at(Titer->second.second), points)==p) {
+        ; // Already have upper points
+      } else { // must be middle point.
+        std::cout <<"Middle point "<<Titer->second.second << "into C(p)"<<std::endl;
+        C.emplace(Titer->second.second);
+        LC_iters.push_back(Titer);
       }
       ++Titer;
     }
-    // C(p) are segments that contain p in their interior. No.
 
     // 3-4. If L, U, C contain more than one segment. Report as intersection.
     // Insert them in a set in case L and U point to the same segment.
-    std::set<SegmentIdx> LU(U.begin(), U.end());
-    LU.insert(L.begin(), L.end());
-    if (LU.size()>1) {
+    std::set<SegmentIdx> LUC(U.begin(), U.end());
+    LUC.insert(L.begin(), L.end());
+    LUC.insert(C.begin(), C.end());
+    if (LUC.size()>1) {
       PointIdx shared_vertex=intersection_points.size();
       intersection_points.push_back(std::make_pair(points[p].x, points[p].y));
-      std::cout << "intersection " << shared_vertex << "(" << points[p].x
+      std::cout << "intersection " << shared_vertex << " (" << points[p].x
         << ", " << points[p].y << ")" << std::endl;
-      for (auto ls : LU) {
+      for (auto ls : LUC) {
         intersections.emplace(shared_vertex, ls);
       }
     } // else no intersection to add.
 
     // 5. Delete L and C from T.
-    for (auto del_l : L) {
-      auto found_segment=std::find_if(T.begin(), T.end(),
-        [del_l](const StatusType::value_type& v)->bool {
-          return v.second==del_l;
-        });
-      if (found_segment!=T.end()) {
-        std::cout << "Delete L from T "<< del_l << std::endl;
-        T.erase(found_segment);
-      }
+    for (auto lc_del : LC_iters) {
+      T.erase(lc_del);
     }
+
+    // std::set<SegmentIdx> LC(L.begin(), L.end());
+    // LC.insert(C.begin(), C.end());
+    // for (auto del_l : LC) {
+    //   auto found_segment=std::find_if(T.begin(), T.end(),
+    //     [del_l](const StatusType::value_type& v)->bool {
+    //       return v.second.second==del_l;
+    //     });
+    //   if (found_segment!=T.end()) {
+    //     std::cout << "Delete LC from T "<< del_l << std::endl;
+    //     T.erase(found_segment);
+    //   }
+    // }
 
     // 6. 7. Insert U and C into T.
     // Store the leftmost and rightmost of U for use in 11.
@@ -369,7 +449,9 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
     StatusType::iterator greatest_u;
     size_t t_before_cnt=T.size();
     bool first=true;
-    for (auto segins : U) {
+    std::set<SegmentIdx> UC(U.begin(), U.end());
+    UC.insert(C.begin(), C.end());
+    for (auto segins : UC) {
       const auto& pa=points[lines[segins].p0];
       const auto& pb=points[lines[segins].p1];
       double dy=pa.y-pb.y;
@@ -380,15 +462,15 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
       if (angle <= 0) {
         angle+=M_PI; // boost::math::constants::pi<double>();
       }
-      StatusLoc loc{points[p].x, points[p].y, angle};
-      std::cout << "Putting U point "<<segins<<" into T: ("
-        << loc.x << ", " << loc.y << ", " << loc.radians << ")-"
+      StatusLoc loc{points[p].x, angle};
+      std::cout << "Putting UC point "<<segins<<" into T: ("
+        << loc.x << ", " << loc.radians << ")-"
         << segins << std::endl;
       bool success;
       if (first) {
         least_loc=loc;
         greatest_loc=loc;
-        std::tie(least_u, success)=T.emplace(loc, segins);
+        std::tie(least_u, success)=T.emplace(loc, std::make_pair(p, segins));
         if (!success) {
           std::cout << "Point "<<p<<" is already in T" << std::endl;
           assert(success);
@@ -397,7 +479,7 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
         first=false;
       } else {
         StatusType::iterator ins_iter;
-        std::tie(ins_iter, success)=T.emplace(loc, segins);
+        std::tie(ins_iter, success)=T.emplace(loc, std::make_pair(p, segins));
         if (!success) {
           std::cout << "Point "<<p<<" is already in T" << std::endl;
           assert(success);
@@ -411,35 +493,37 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
         }
       }
     }
-    assert(t_before_cnt+U.size()==T.size());
+    assert(t_before_cnt+UC.size()==T.size());
     std::cout << "T ";
     for (auto tentry : T) {
-      std::cout << tentry.first << '-' << tentry.second << ", ";
+      std::cout << tentry.first << '-' << tentry.second.first <<'-'
+        <<tentry.second.second << ", ";
     }
     std::cout << std::endl;
-    std::cout << "\tLeast u "<<least_u->first<<'-'<<least_u->second
-      <<" greatest u " <<greatest_u->first <<'-'<<greatest_u->second<<std::endl;
+
+    graphical(points, lines, T, p, L, U, C, intersection_points);
 
     // 7. if U+C==0
-    std::cout << "U size " << U.size() << std::endl;
-    if (U.size()==0) {
+    std::cout << "UC size " << UC.size() << std::endl;
+    if (UC.size()==0) {
+      std::cout << "size(UC)=0" << std::endl;
       // 8. let sl and sr be the left and right neighbors of p.
       auto p_begin=std::find_if(T.begin(), T.end(),
-        [p, &lines](const std::pair<StatusLoc,SegmentIdx>& tentry)->bool {
-          const auto& l=lines.at(tentry.second);
+        [p, &lines](const StatusType::value_type& tentry)->bool {
+          const auto& l=lines.at(tentry.second.second);
           return l.Contains(p);
         });
       if (p_begin!=T.begin()) {
         auto sl=p_begin;
         --sl;
-        while (p_begin!=T.end() && lines.at(p_begin->second).Contains(p)) {
+        while (p_begin!=T.end() && lines.at(p_begin->second.second).Contains(p)) {
           ++p_begin;
         }
         if (p_begin!=T.end()) {
-          std::cout << "8. find event " << sl->second << "-" << p_begin->second
-            << std::endl;
-          FindNewEvent(sl->second, p_begin->second, p, lines, points, Q,
-            intersections, intersection_points);
+          std::cout << "8. find event " << sl->second.second << "-"
+            << p_begin->second.second << std::endl;
+          FindNewEvent(sl->second.second, p_begin->second.second, p,
+            lines, points, Q, intersections, intersection_points);
         } else {
           std::cout << "8. " << p << " has no right neighbor. no search" << std::endl;
         }
@@ -447,21 +531,24 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
         std::cout <<"8. " << p << " has no left neighbor. no search" << std::endl;
       }
     } else {
+      std::cout << "\tLeast u "<<least_u->first<<'-'<<least_u->second.second
+        <<" greatest u " <<greatest_u->first <<'-'
+        <<greatest_u->second.second<<std::endl;
       if (least_u!=T.begin()) {
         auto sl=least_u;
         --sl;
-        std::cout << "8. Find event " << sl->second << "-" <<
-          least_u->second << std::endl;
-        FindNewEvent(sl->second, least_u->second, p, lines, points, Q,
-          intersections, intersection_points);
+        std::cout << "8. Find event " << sl->second.second << "-" <<
+          least_u->second.second << std::endl;
+        FindNewEvent(sl->second.second, least_u->second.second, p, lines,
+          points, Q, intersections, intersection_points);
       } else {
         std::cout << "8. Least_u is at beginning. No search." << std::endl;
       }
       auto sr=greatest_u;
       ++sr;
       if (sr!=T.end()) {
-        FindNewEvent(greatest_u->second, sr->second, p, lines, points, Q,
-          intersections, intersection_points);
+        FindNewEvent(greatest_u->second.second, sr->second.second, p, lines,
+          points, Q, intersections, intersection_points);
       } else {
         std::cout << "8. Greatest_u is at end. No search." << std::endl;
       }

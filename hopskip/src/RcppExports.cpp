@@ -67,3 +67,16 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// hilbertXY2D
+SEXP hilbertXY2D(SEXP sx, SEXP sy, SEXP sn);
+RcppExport SEXP hopskip_hilbertXY2D(SEXP sxSEXP, SEXP sySEXP, SEXP snSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< SEXP >::type sx(sxSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sy(sySEXP);
+    Rcpp::traits::input_parameter< SEXP >::type sn(snSEXP);
+    __result = Rcpp::wrap(hilbertXY2D(sx, sy, sn));
+    return __result;
+END_RCPP
+}

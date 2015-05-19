@@ -21,3 +21,7 @@ TestCallback <- function(callback) {
     .Call('hopskip_TestCallback', PACKAGE = 'hopskip', callback)
 }
 
+hilbertXY2D <- function(sx, sy, sn) {
+    .Call('hopskip_hilbertXY2D', PACKAGE = 'hopskip', sx, sy, sn)
+}
+

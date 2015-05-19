@@ -95,8 +95,8 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
   NumericVector unitsy(sunitsy);
   NumericVector endpointsx(sendpointsx);
   NumericVector endpointsy(sendpointsy);
-  NumericVector streetsp0(sstreetsp0);
-  NumericVector streetsp1(sstreetsp1);
+  IntegerVector streetsp0(sstreetsp0);
+  IntegerVector streetsp1(sstreetsp1);
   assert(unitsx.size()==unitsy.size());
   assert(endpointsx.size()==endpointsy.size());
   assert(streetsp0.size()==streetsp1.size());
@@ -104,52 +104,90 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
   size_t unit_cnt=unitsx.size();
   size_t dist_cnt=unit_cnt*(unit_cnt-1)/2;
   size_t street_cnt=streetsp0.size();
-  std::vector<std::pair<double,double>> points(unit_cnt+endpointsx.size());
-  for (size_t uidx=0; uidx<unitsx.size(); ++uidx) {
-    points.emplace_back(unitsx[uidx], unitsy[uidx]);
+  size_t street_pt_cnt=endpointsx.size();
+  std::cout << "units "<<unit_cnt<<" dists "<<dist_cnt<<" streets "
+    << street_cnt << " streetpt " << street_pt_cnt << std::endl;;
+  std::vector<std::pair<double,double>> points(unit_cnt+street_pt_cnt);
+  std::cout << "placing points: ";
+  for (size_t uidx=0; uidx<unit_cnt; ++uidx) {
+    std::cout << "("<<unitsx[uidx] << " " << unitsy[uidx] << ") ";
+    points[uidx]=std::make_pair(unitsx[uidx], unitsy[uidx]);
   }
-  for (size_t eidx=0; eidx<endpointsx.size(); ++eidx) {
-    points.emplace_back(endpointsx[eidx], endpointsy[eidx]);
+  std::cout << std::endl;
+  std::cout << "street points ";
+  for (size_t eidx=0; eidx<street_pt_cnt; ++eidx) {
+    std::cout << "("<<endpointsx[eidx] << " " << endpointsy[eidx]<<") ";
+    points[unit_cnt+eidx]=std::make_pair(endpointsx[eidx], endpointsy[eidx]);
   }
+  std::cout << std::endl;
+  // Make line segments
   std::vector<std::pair<size_t,size_t>> segments(dist_cnt+street_cnt);
-  for (size_t source_idx=0; source_idx<unit_cnt; ++source_idx) {
+  // Add segments between all pairs of units.
+  size_t seg_idx=0;
+  for (size_t source_idx=0; source_idx<unit_cnt-1; ++source_idx) {
     for (size_t target_idx=source_idx+1; target_idx<unit_cnt; ++target_idx) {
-      segments.emplace_back(source_idx, target_idx);
+      segments[seg_idx]=std::make_pair(source_idx, target_idx);
+      ++seg_idx;
     }
   }
+  // Add segments for streets.
   for (size_t street_idx=0; street_idx<street_cnt; ++street_idx) {
     // -1 to move to 0-based indexing
-    segments.emplace_back(streetsp0[street_idx]-1, streetsp1[street_idx]-1);
+    segments[seg_idx]=std::make_pair(streetsp0[street_idx]-1+unit_cnt,
+      streetsp1[street_idx]-1+unit_cnt);
+    ++seg_idx;
+  }
+  if (seg_idx!=dist_cnt+street_cnt) {
+    std::cout << "You cannot count!" << std::endl;
+    assert(seg_idx==dist_cnt+street_cnt);
   }
 
   std::vector<std::pair<double,double>> intpoints;
     std::multimap<size_t,size_t> intverts;
     std::tie(intpoints, intverts)=segment_intersections(points, segments);
 
+  std::cout << "Intersections to pass back ";
+  for (auto mmi : intverts) {
+    std::cout << '(' << mmi.first << ',' << mmi.second << ") ";
+  }
+  std::cout << std::endl;
+  std::cout << "Points going back ";
+  for (auto xy : intpoints) {
+    std::cout << '(' << xy.first << ',' << xy.second << ") ";
+  }
+  std::cout << std::endl;
+
   IntegerVector crossings(unit_cnt*unit_cnt);
 
-  std::multimap<size_t,size_t>::const_iterator vert_cursor;
-  vert_cursor=intverts.begin();
-  while (vert_cursor!=intverts.end()) {
+  std::multimap<size_t,size_t>::const_iterator vert_cursor=intverts.cbegin();
+  while (vert_cursor!=intverts.cend()) {
     size_t point_idx=vert_cursor->first;
+    std::cout << "looking at "<<point_idx<<std::endl;
     std::set<size_t> street;
     std::set<size_t> arc;
-    while (vert_cursor!=intverts.end() && vert_cursor->first==point_idx) {
+    while (vert_cursor!=intverts.cend() && vert_cursor->first==point_idx) {
       size_t segment_idx=vert_cursor->second;
       if (segment_idx<dist_cnt) {
+        std::cout << "segment "<<segment_idx <<" in arc"<<std::endl;
         arc.insert(segment_idx);
       } else {
+        std::cout << "segment "<<segment_idx <<" in street"<<std::endl;
         street.insert(segment_idx);
       }
       ++vert_cursor;
     }
     if (arc.size()>0 && street.size()>0) {
+      std::cout << "Adding crossings ";
       for (size_t crossed : arc) {
         const auto& arcref=segments[crossed];
         // Add to i,j and j,i.
-        crossings[arcref.first*unit_cnt + arcref.second]+=1;
-        crossings[arcref.second*unit_cnt + arcref.first]+=1;
+        auto idxl=arcref.first*unit_cnt + arcref.second;
+        auto idxr=arcref.second*unit_cnt + arcref.first;
+        std::cout << "("<<idxl << " " << idxr << ") " << std::endl;
+        crossings[idxl]+=1;
+        crossings[idxr]+=1;
       }
+      std::cout << std::endl;
     }
   }
 
@@ -273,4 +311,70 @@ SEXP TestCallback(Function callback) {
   fillit(callback, 4);
   fillit(callback, 7);
   return Rcpp::wrap(0);
+}
+
+
+// Hilbert code straight from Wikipedia.
+// Hope it's right.
+//rotate/flip a quadrant appropriately
+void rot(int n, int *x, int *y, int rx, int ry) {
+    if (ry == 0) {
+        if (rx == 1) {
+            *x = n-1 - *x;
+            *y = n-1 - *y;
+        }
+ 
+        //Swap x and y
+        int t  = *x;
+        *x = *y;
+        *y = t;
+    }
+}
+
+//convert (x,y) to d
+void xy2d (int const* const px, int const* const py, int *const pd, int s, int n) {
+  for (int i=0; i<s; ++i) {
+    int x=px[i];
+    int y=py[i];
+    int rx, ry, s, d=0;
+    for (s=n/2; s>0; s/=2) {
+        rx = (x & s) > 0;
+        ry = (y & s) > 0;
+        d += s * s * ((3 * rx) ^ ry);
+        rot(s, &x, &y, rx, ry);
+    }
+    pd[i]=d;
+  }
+}
+ 
+//convert d to (x,y)
+void d2xy(int n, int d, int *x, int *y) {
+    int rx, ry, s, t=d;
+    *x = *y = 0;
+    for (s=1; s<n; s*=2) {
+        rx = 1 & (t/2);
+        ry = 1 & (t ^ rx);
+        rot(s, x, y, rx, ry);
+        *x += s * rx;
+        *y += s * ry;
+        t /= 4;
+    }
+}
+
+// [[Rcpp::export]]
+SEXP hilbertXY2D(SEXP sx, SEXP sy, SEXP sn) {
+  NumericVector x(sx);
+  NumericVector y(sy);
+  IntegerVector n(sn);
+  std::vector<int> ix(x.size());
+  std::vector<int> iy(x.size());
+  for (int i=0; i<x.size(); ++i) {
+    ix[i]=std::round(x[i]);
+    iy[i]=std::round(y[i]);
+  }
+  std::vector<int> id(x.size());
+
+  xy2d(ix.data(), iy.data(), id.data(), x.size(), n[0]);
+  IntegerVector d(id.begin(), id.end());
+  return d;
 }
