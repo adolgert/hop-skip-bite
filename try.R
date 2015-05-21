@@ -1,6 +1,7 @@
 library("spatstat")
 library("survival")
 library("animation")
+library("deldir")
 library("hopskip")
 
 source("file_format.R")
@@ -17,13 +18,97 @@ center.point <- function(spatdata) {
 }
 
 
-sirgenerate <- function(house_cnt, run_cnt) {
-  X<-rHardcore(house_cnt, 0.02, square(1))
-  dx<-pairdist(X)
-  start<-center.point(X)
+generate.streets <- function(block_cnt) {
+  X <- rHardcore(block_cnt, 0.05, square(1))
+  voronoi<-deldir(X, rw=c(0, 1, 0, 1))
+  dsgs<-voronoi$dirsgs
+  # They give points as x, y, not as a complex.
+  # Find the ones that are distinct. We have an unusual advantage in
+  # that we can calculate the number of distinct points there should
+  # be, so a stable method is to find every point distance, sort them,
+  # and pick a cutoff tolerance.
+  print(dsgs)
+  boundary_cnt <- 0
+  edge_cnt <- nrow(dsgs)
+  for (vcp_idx in 1:edge_cnt) {
+    if (dsgs$bp1[vcp_idx]) {
+      boundary_cnt <- boundary_cnt + 1
+    }
+    if (dsgs$bp2[vcp_idx]) {
+      boundary_cnt <- boundary_cnt + 1
+    }
+  }
+  pt_cnt <- 2*edge_cnt
+  internal_cnt <- (pt_cnt-boundary_cnt)/3
+  unique_cnt <- internal_cnt + boundary_cnt
+  print(paste("unique", unique_cnt, "internal", internal_cnt,
+    "pt_cnt", pt_cnt, "edge_cnt", edge_cnt, "boundary", boundary_cnt))
+  x <- vector(mode="numeric", unique_cnt)
+  y <- vector(mode="numeric", unique_cnt)
+  p0 <- vector(mode="numeric", edge_cnt)
+  p1 <- vector(mode="numeric", edge_cnt)
+
+  all_pts <- ppp(c(dsgs$x1, dsgs$x2), c(dsgs$y1, dsgs$y2))
+  dx <- pairdist(all_pts)
+  dx <- as.vector(dx)
+  dx <- dx[order(dx)]
+  total <- pt_cnt*pt_cnt
+  stopifnot(total==length(dx))
+  zero_cnt <- boundary_cnt + 9*internal_cnt
+  print(paste("expect zeros", zero_cnt, "find", sum(dx<0.000001)))
+  #print(dx)
+  tolerance=0
+  if (dx[zero_cnt]>0) {
+    # geometric mean, then squared to compare with squared distance.
+    tolerance=dx[zero_cnt]*dx[zero_cnt+1]
+  } else {
+    # minimum size, squared to compare with squared distance.
+    tolerance=0.1*(dx[zero_cnt+1])^2
+  }
+  print(paste("tolerance", tolerance))
+
+  pt_idx <- 1
+  find_or_make <- function(ax, ay, env=parent.frame()) {
+    for (idx in 1:env$pt_idx) {
+      if ((ax-x[idx])^2+(ay-y[idx])^2 < tolerance) {
+        return(idx)
+      }
+    }
+    add_idx<-env$pt_idx+1
+    env$pt_idx<-add_idx
+    env$x[add_idx]<-ax
+    env$y[add_idx]<-ay
+    # print(paste("inx", x, "iny", y))
+    add_idx
+  }
+  x[pt_idx]<-dsgs$x1[1]
+  y[pt_idx]<-dsgs$y1[1]
+  for (e_idx in 1:edge_cnt) {
+    p0p<-find_or_make(dsgs$x1[e_idx], dsgs$y1[e_idx])
+    pt_idx<-max(p0p, pt_idx)
+    p1p<-find_or_make(dsgs$x2[e_idx], dsgs$y2[e_idx])
+    p0[e_idx]=p0p
+    p1[e_idx]=p1p
+    # print(paste("p0", p0p, "p1", p1p, "idx", pt_idx))
+    # print(paste("x", x, "y", y))
+  }
+  stopifnot(pt_idx==unique_cnt)
+  list(x=x, y=y, p0=p0, p1=p1, dirsgs=dsgs)
+}
+
+
+sirgenerate <- function(house_cnt, block_cnt, run_cnt) {
+  houses<-rHardcore(house_cnt, 0.02, square(1))
+
+  streets<-generate.streets(block_cnt)
+  crossings<-intersections(houses$x, houses$y, streets$x, streets$y,
+    streets$p0, streets$p1)
+
+  dx<-pairdist(houses)
+  start<-center.point(houses)
   p<-c(individual_cnt=dim(dx)[[1]], seed=33333, N0=1.0, beta0=0.3, beta1=0.01,
     beta2=0.1, gamma=0.1, cutoff=0.1, growthrate=4.5, carrying=1000.0,
-    runs=run_cnt, initial=start
+    runs=run_cnt, initial=start, streetfactor=0.4
     )
   # fully infected takes n days to infect neighbor
   ndays <- 30
@@ -34,7 +119,7 @@ sirgenerate <- function(house_cnt, run_cnt) {
 
   outfile="z.h5"
   create_file(outfile)
-  write_locations(outfile, X)
+  write_locations(outfile, houses)
   callback_env<-new.env(parent=emptyenv())
   callback_env$results=list()
   save.to.file <- function(arg) {
@@ -45,7 +130,7 @@ sirgenerate <- function(house_cnt, run_cnt) {
   }
   
   print("running")
-  simple_hazard(dx, p, save.to.file)
+  simple_hazard(dx, crossings, p, save.to.file)
   print("ran")
 }
 
@@ -141,9 +226,9 @@ infection.times.hazard <- function(filename) {
 }
 
 # res<-bugtest(1000)
-#res<-sirgenerate(1000, 30)
+res<-sirgenerate(100, 10, 30)
 # warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
 # infection.times.hazard("z.h5")
-t<-get.single.trajectory("z.h5", 1)
-create.web.movie(t$locations, t$trajectory)
+#t<-get.single.trajectory("z.h5", 1)
+#create.web.movie(t$locations, t$trajectory)

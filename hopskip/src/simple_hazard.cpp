@@ -17,8 +17,9 @@ namespace simple_hazard {
 
 // Infect a hop-distance away with one hazard.
 class Infect0 : public SIRTransition {
+  double street_factor_;
   public:
-    Infect0() {}
+    Infect0(double street_factor) : street_factor_(street_factor) {}
 
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
@@ -26,7 +27,7 @@ class Infect0 : public SIRTransition {
         int64_t I=lm.template Length<0>(0);
         int64_t S=lm.template Length<0>(1);
         if (S>0 && I>0) {
-            double rate=s.params.at(Parameter::beta0);
+            double rate=s.params.at(Parameter::beta0)*street_factor_;
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -68,8 +69,9 @@ class Infect1 : public SIRTransition {
 
 // Infect a hop-distance away with one hazard.
 class ExcessInfect0 : public SIRTransition {
+  double street_factor_;
   public:
-    ExcessInfect0() {}
+    ExcessInfect0(double street_factor) : street_factor_(street_factor) {}
 
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
@@ -83,7 +85,7 @@ class ExcessInfect0 : public SIRTransition {
                 s.params.at(Parameter::N0),
                 s.params.at(Parameter::carrying),
                 s.params.at(Parameter::growthrate),
-                s.params.at(Parameter::beta0),
+                s.params.at(Parameter::beta0)*street_factor_,
                 te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -161,7 +163,8 @@ class Notify : public SIRTransition {
 
 
 void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-      double cutoff, RandGen& rng) {
+      const std::vector<int>& streets, double cutoff, double street_factor,
+      RandGen& rng) {
   using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
   int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
@@ -179,10 +182,12 @@ void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
       auto susceptible=SIRPlace{target_idx, 0};
       auto infected=SIRPlace{target_idx, 1};
       if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+        double street_fraction=std::pow(street_factor,
+          streets[source_idx*cnt+target_idx]);
         bg.AddTransition({source_idx, target_idx, 1},
           {Edge{source, -1}, Edge{susceptible, -1},
           Edge{infected, 1}},
-          std::unique_ptr<SIRTransition>(new Infect0()));
+          std::unique_ptr<SIRTransition>(new Infect0(street_fraction)));
       } else {
         bg.AddTransition({source_idx, target_idx, 1},
           {Edge{source, -1}, Edge{susceptible, -1},
@@ -201,7 +206,8 @@ void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
 
 
 void BuildGrowthSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-    double cutoff, RandGen& rng) {
+    const std::vector<int>& streets, double cutoff, double street_factor,
+    RandGen& rng) {
   using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
   int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
@@ -217,10 +223,12 @@ void BuildGrowthSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
       auto susceptible=SIRPlace{target_idx, 0};
       auto infected=SIRPlace{target_idx, 1};
       if (pairwise[source_idx+cnt*target_idx]<cutoff) {
+        double street_fraction=std::pow(street_factor,
+          streets[source_idx*cnt+target_idx]);
         bg.AddTransition({source_idx, target_idx, 1},
           {Edge{source, -1}, Edge{susceptible, -1},
           Edge{infected, 1}},
-          std::unique_ptr<SIRTransition>(new ExcessInfect0()));
+          std::unique_ptr<SIRTransition>(new ExcessInfect0(street_fraction)));
       } else {
         bg.AddTransition({source_idx, target_idx, 1},
           {Edge{source, -1}, Edge{susceptible, -1},
@@ -304,7 +312,8 @@ struct SIROutput {
 
 
 SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
-    const std::vector<double>& pairwise_distance, RandGen& rng) {
+    const std::vector<double>& pairwise_distance,
+    const std::vector<int>& streets, RandGen& rng) {
   BOOST_LOG_TRIVIAL(debug)<<"Entering SIR_run";
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
@@ -314,10 +323,12 @@ SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
   SIRGSPN gspn(place_cnt+transition_cnt);
   double cutoff=boost::any_cast<double>(params["cutoff"]);
   double growthrate=boost::any_cast<double>(params["growthrate"]);
+  double street_factor=boost::any_cast<double>(params["streetfactor"]);
   if (growthrate<=0) {
-    BuildSystem(gspn, pairwise_distance, cutoff, rng);
+    BuildSystem(gspn, pairwise_distance, streets, cutoff, street_factor, rng);
   } else {
-    BuildGrowthSystem(gspn, pairwise_distance, cutoff, rng);
+    BuildGrowthSystem(gspn, pairwise_distance, streets, cutoff,
+      street_factor, rng);
   }
   return gspn;
 }
@@ -341,7 +352,8 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
     {Parameter::beta2, "beta2"},
     {Parameter::gamma, "gamma"},
     {Parameter::growthrate, "growthrate"},
-    {Parameter::carrying, "carrying"}
+    {Parameter::carrying, "carrying"},
+    {Parameter::streetfactor, "streetfactor"}
     };
 
   SIRState state;

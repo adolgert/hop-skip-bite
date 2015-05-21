@@ -176,7 +176,7 @@ make.plot <- function(houses, streets, crossings) {
   conn_idx <- 1
   for (i in 1:(house_cnt-1)) {
     for (j in (i+1):house_cnt) {
-      if (crossings[(i-1)*house_cnt+j]>0) {
+      if (crossings[(i-1)*house_cnt+j]==0) {
         p1x[conn_idx] <- houses$x[i]
         p1y[conn_idx] <- houses$y[i]
         p2x[conn_idx] <- houses$x[j]
@@ -205,8 +205,8 @@ make.plot <- function(houses, streets, crossings) {
 }
 
 gen.world <- function() {
-  houses<-gen_points(5)
-  streets<-gen_streets(3)
+  houses<-gen_points(100)
+  streets<-gen_streets(5)
   print(paste("houses", houses$x, houses$y))
   crossings<-intersections(houses$x, houses$y, streets$x, streets$y,
     streets$p0, streets$p1)

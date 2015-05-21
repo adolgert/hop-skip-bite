@@ -57,7 +57,7 @@ class CallbackEventObserver : public hsb::TrajectoryObserver {
 
     auto df=DataFrame::create(Named("when")=when,
       Named("event")=what, Named("whom")=who, Named("who")=who2);
-    BOOST_LOG_TRIVIAL(debug)<<"Writing results to callback";
+    BOOST_LOG_TRIVIAL(trace)<<"Writing results to callback";
     callback_(df);
     when_.clear();
     what_.clear();
@@ -71,7 +71,7 @@ struct TKeyWriter {
   std::ofstream keyfile;
   TKeyWriter() : keyfile("keys.txt") {}
   void Write(int64_t id, hsb::simple_hazard::SIRTKey tid) {
-      keyfile << id << "\t" << tid << std::endl;
+      keyfile << id << "\t" << tid ;
   }
 };
 
@@ -89,7 +89,7 @@ struct TKeyWriter {
 // [[Rcpp::export]]
 SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
-  afidd::LogInit("debug");
+  afidd::LogInit("info");
 
   NumericVector unitsx(sunitsx);
   NumericVector unitsy(sunitsy);
@@ -105,24 +105,23 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
   size_t dist_cnt=unit_cnt*(unit_cnt-1)/2;
   size_t street_cnt=streetsp0.size();
   size_t street_pt_cnt=endpointsx.size();
-  std::cout << "units "<<unit_cnt<<" dists "<<dist_cnt<<" streets "
-    << street_cnt << " streetpt " << street_pt_cnt << std::endl;;
+  BOOST_LOG_TRIVIAL(trace) << "units "<<unit_cnt<<" dists "<<dist_cnt<<" streets "
+    << street_cnt << " streetpt " << street_pt_cnt ;;
   std::vector<std::pair<double,double>> points(unit_cnt+street_pt_cnt);
-  std::cout << "placing points: ";
+  BOOST_LOG_TRIVIAL(trace) << "placing points: ";
   for (size_t uidx=0; uidx<unit_cnt; ++uidx) {
-    std::cout << "("<<unitsx[uidx] << " " << unitsy[uidx] << ") ";
+    BOOST_LOG_TRIVIAL(trace) << "("<<unitsx[uidx] << " " << unitsy[uidx] << ") ";
     points[uidx]=std::make_pair(unitsx[uidx], unitsy[uidx]);
   }
-  std::cout << std::endl;
-  std::cout << "street points ";
+  BOOST_LOG_TRIVIAL(trace) ;
+  BOOST_LOG_TRIVIAL(trace) << "street points ";
   for (size_t eidx=0; eidx<street_pt_cnt; ++eidx) {
-    std::cout << "("<<endpointsx[eidx] << " " << endpointsy[eidx]<<") ";
+    BOOST_LOG_TRIVIAL(trace) << "("<<endpointsx[eidx] << " " << endpointsy[eidx]<<") ";
     points[unit_cnt+eidx]=std::make_pair(endpointsx[eidx], endpointsy[eidx]);
   }
-  std::cout << std::endl;
   // Make line segments
   std::vector<std::pair<size_t,size_t>> segments(dist_cnt+street_cnt);
-  std::cout << "segments between pairs of units" << std::endl;
+  BOOST_LOG_TRIVIAL(trace) << "segments between pairs of units" ;
   // Add segments between all pairs of units.
   size_t seg_idx=0;
   for (size_t source_idx=0; source_idx<unit_cnt-1; ++source_idx) {
@@ -139,57 +138,54 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     ++seg_idx;
   }
   if (seg_idx!=dist_cnt+street_cnt) {
-    std::cout << "You cannot count!" << std::endl;
+    BOOST_LOG_TRIVIAL(trace) << "You cannot count!" ;
     assert(seg_idx==dist_cnt+street_cnt);
   }
 
-  std::cout << "Calling segment_intersections"<<std::endl;
+  BOOST_LOG_TRIVIAL(debug) << "Calling segment_intersections";
   std::vector<std::pair<double,double>> intpoints;
     std::multimap<size_t,size_t> intverts;
     std::tie(intpoints, intverts)=segment_intersections(points, segments);
 
-  std::cout << "Intersections to pass back ";
+  BOOST_LOG_TRIVIAL(debug) << "Intersections to pass back ";
   for (auto mmi : intverts) {
-    std::cout << '(' << mmi.first << ',' << mmi.second << ") ";
+    BOOST_LOG_TRIVIAL(trace) << '(' << mmi.first << ',' << mmi.second << ") ";
   }
-  std::cout << std::endl;
-  std::cout << "Points going back ";
+  BOOST_LOG_TRIVIAL(trace) << "Points going back ";
   for (auto xy : intpoints) {
-    std::cout << '(' << xy.first << ',' << xy.second << ") ";
+    BOOST_LOG_TRIVIAL(trace) << '(' << xy.first << ',' << xy.second << ") ";
   }
-  std::cout << std::endl;
 
   IntegerVector crossings(unit_cnt*unit_cnt);
 
   std::multimap<size_t,size_t>::const_iterator vert_cursor=intverts.cbegin();
   while (vert_cursor!=intverts.cend()) {
     size_t point_idx=vert_cursor->first;
-    std::cout << "looking at "<<point_idx<<std::endl;
+    BOOST_LOG_TRIVIAL(trace) << "looking at "<<point_idx;
     std::set<size_t> street;
     std::set<size_t> arc;
     while (vert_cursor!=intverts.cend() && vert_cursor->first==point_idx) {
       size_t segment_idx=vert_cursor->second;
       if (segment_idx<dist_cnt) {
-        std::cout << "segment "<<segment_idx <<" in arc"<<std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "segment "<<segment_idx <<" in arc";
         arc.insert(segment_idx);
       } else {
-        std::cout << "segment "<<segment_idx <<" in street"<<std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "segment "<<segment_idx <<" in street";
         street.insert(segment_idx);
       }
       ++vert_cursor;
     }
     if (arc.size()>0 && street.size()>0) {
-      std::cout << "Adding crossings ";
+      BOOST_LOG_TRIVIAL(trace) << "Adding crossings ";
       for (size_t crossed : arc) {
         const auto& arcref=segments[crossed];
         // Add to i,j and j,i.
         auto idxl=arcref.first*unit_cnt + arcref.second;
         auto idxr=arcref.second*unit_cnt + arcref.first;
-        std::cout << "("<<idxl << " " << idxr << ") " << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "("<<idxl << " " << idxr << ") " ;
         crossings[idxl]+=1;
         crossings[idxr]+=1;
       }
-      std::cout << std::endl;
     }
   }
 
@@ -198,32 +194,54 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
 
 
 // [[Rcpp::export]]
-SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
-    Rcpp::Function callback) {
-  afidd::LogInit("info");
+SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
+    SEXP parametersS, Rcpp::Function callback) {
+  afidd::LogInit("debug");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
+  IntegerVector street_matrix(street_matrixS);
+  std::vector<int> streets(street_matrix.begin(), street_matrix.end());
 
+  BOOST_LOG_TRIVIAL(debug)<<"Unpacking parameters";
+
+  static const std::vector<std::string> int_params={
+    "individual_cnt", "initial", "seed"
+  };
+  static const std::vector<std::string> float_params={
+    "N0", "beta0", "beta1", "beta2", "gamma", "streetfactor",
+    "cutoff", "growthrate", "carrying"
+  };
   List parameters(parametersS);
   std::map<std::string, boost::any> params;
-  params["individual_cnt"]=int64_t{as<int>(parameters["individual_cnt"])};
-  params["initial"]=int64_t{as<int>(parameters["initial"])};
-  params["N0"]=double{as<double>(parameters["N0"])};
-  params["beta0"]=double{as<double>(parameters["beta0"])};
-  params["beta1"]=double{as<double>(parameters["beta1"])};
-  params["beta2"]=double{as<double>(parameters["beta2"])};
-  params["gamma"]=double{as<double>(parameters["gamma"])};
-  params["cutoff"]=double{as<double>(parameters["cutoff"])};
-  params["growthrate"]=double{as<double>(parameters["growthrate"])};
-  params["carrying"]=double{as<double>(parameters["carrying"])};
+  for (auto iparam : int_params) {
+    try {
+      params[iparam]=int64_t{as<int>(parameters[iparam])};
+    } catch (...) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<iparam;
+      std::stringstream pmsg;
+      pmsg << "Could not decode " << iparam;
+      throw std::runtime_error(pmsg.str());
+    }
+  }
+  for (auto fparam : float_params) {
+    try {
+      params[fparam]=double{as<double>(parameters[fparam])};
+    } catch (...) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<fparam;
+      std::stringstream pmsg;
+      pmsg << "Could not decode " << fparam;
+      throw std::runtime_error(pmsg.str());
+    }
+  }
   int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
-  params["seed"]=rand_seed;
 
   auto observer=std::make_shared<CallbackEventObserver>(callback);
 
+  BOOST_LOG_TRIVIAL(debug)<<"Call SimpleHazardGSPN";
   RandGen rng(rand_seed);
-  auto gspn=hsb::simple_hazard::SimpleHazardGSPN(params, distance, rng);
+  auto gspn=hsb::simple_hazard::SimpleHazardGSPN(params, distance,
+    streets, rng);
 
   bool write_keys=false;
   if (write_keys) {
@@ -234,11 +252,12 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS,
   int run_cnt=1;
   if (parameters.containsElementNamed("runs")) {
     run_cnt=as<int>(parameters["runs"]);
-    BOOST_LOG_TRIVIAL(debug)<<"has run cnt";
+    BOOST_LOG_TRIVIAL(trace)<<"has run cnt";
   } else {
-    BOOST_LOG_TRIVIAL(debug)<<"doesn't have cnt";
+    BOOST_LOG_TRIVIAL(trace)<<"doesn't have cnt";
   }
 
+  BOOST_LOG_TRIVIAL(debug)<<"Start SIR_run loop";
   for (int run_idx=0; run_idx<run_cnt; ++run_idx) {
     hsb::simple_hazard::SIR_run(params, gspn, observer, rng);
   }

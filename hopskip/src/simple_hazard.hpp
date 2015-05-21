@@ -18,7 +18,7 @@ namespace smv=afidd::smv;
 using namespace smv;
 
 enum class Parameter : int { none, beta0, beta1, beta2, gamma,
-  N0, carrying, growthrate, growthscale };
+  N0, carrying, growthrate, growthscale, streetfactor };
 
 // A token is an instance of this class.
 struct AnonymousToken {
@@ -103,13 +103,16 @@ using SIRGSPN=
 
 
 void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-      double cutoff, RandGen& rng);
+  const std::vector<int>& streets, 
+  double cutoff, double street_factor, RandGen& rng);
 
 void BuildGrowthSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-      double cutoff, RandGen& rng);
+  const std::vector<int>& streets, 
+  double cutoff, double street_factor, RandGen& rng);
 
 SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
-    const std::vector<double>& pairwise_distance, RandGen& rng);
+  const std::vector<double>& pairwise_distance,
+  const std::vector<int>& streets, RandGen& rng);
 
 int64_t SIR_run(std::map<std::string, boost::any> params,
   SIRGSPN& gspn,

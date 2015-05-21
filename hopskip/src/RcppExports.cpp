@@ -22,15 +22,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // simple_hazard
-SEXP simple_hazard(SEXP pairwise_distanceS, SEXP parametersS, Rcpp::Function callback);
-RcppExport SEXP hopskip_simple_hazard(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP, SEXP callbackSEXP) {
+SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS, SEXP parametersS, Rcpp::Function callback);
+RcppExport SEXP hopskip_simple_hazard(SEXP pairwise_distanceSSEXP, SEXP street_matrixSSEXP, SEXP parametersSSEXP, SEXP callbackSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type street_matrixS(street_matrixSSEXP);
     Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
     Rcpp::traits::input_parameter< Rcpp::Function >::type callback(callbackSEXP);
-    __result = Rcpp::wrap(simple_hazard(pairwise_distanceS, parametersS, callback));
+    __result = Rcpp::wrap(simple_hazard(pairwise_distanceS, street_matrixS, parametersS, callback));
     return __result;
 END_RCPP
 }

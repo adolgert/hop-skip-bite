@@ -5,8 +5,8 @@ intersections <- function(sunitsx, sunitsy, sendpointsx, sendpointsy, sstreetsp0
     .Call('hopskip_intersections', PACKAGE = 'hopskip', sunitsx, sunitsy, sendpointsx, sendpointsy, sstreetsp0, sstreetsp1)
 }
 
-simple_hazard <- function(pairwise_distanceS, parametersS, callback) {
-    .Call('hopskip_simple_hazard', PACKAGE = 'hopskip', pairwise_distanceS, parametersS, callback)
+simple_hazard <- function(pairwise_distanceS, street_matrixS, parametersS, callback) {
+    .Call('hopskip_simple_hazard', PACKAGE = 'hopskip', pairwise_distanceS, street_matrixS, parametersS, callback)
 }
 
 bugs <- function(pairwise_distanceS, parametersS) {
