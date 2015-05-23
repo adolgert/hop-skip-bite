@@ -275,7 +275,7 @@ infection.times.hazard <- function(filename) {
 
 # res<-bugtest(1000)
 # res<-sirgenerate(10, 5, 1)
-landscape.generate(10, 5)
+landscape.generate(100, 5)
 # warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
 # infection.times.hazard("z.h5")
