@@ -18,6 +18,46 @@ center.point <- function(spatdata) {
 }
 
 
+houses.plot <- function(houses, streets, crossings) {
+  house_cnt<-length(houses$x)
+  stopifnot(length(crossings)==house_cnt*house_cnt)
+  print(crossings)
+  p1x=vector(mode="numeric", house_cnt*house_cnt)
+  p1y=vector(mode="numeric", house_cnt*house_cnt)
+  p2x=vector(mode="numeric", house_cnt*house_cnt)
+  p2y=vector(mode="numeric", house_cnt*house_cnt)
+  conn_idx <- 1
+  for (i in 1:(house_cnt-1)) {
+    for (j in (i+1):house_cnt) {
+      if (crossings[(i-1)*house_cnt+j]==0) {
+        p1x[conn_idx] <- houses$x[i]
+        p1y[conn_idx] <- houses$y[i]
+        p2x[conn_idx] <- houses$x[j]
+        p2y[conn_idx] <- houses$y[j]
+        conn_idx <- conn_idx + 1
+      } # else no crossing
+    }
+  }
+  conn_cnt <- conn_idx - 1
+  print(paste("There are", conn_cnt, "crossings"))
+
+  pdf("points.pdf")
+  plot(0:1, 0:1, type="n")
+  for (hi in 1:house_cnt) {
+    text(houses$x[hi], houses$y[hi], hi-1)
+  }
+  for (si in 1:length(streets$x)) {
+    text(streets$x[si], streets$y[si], house_cnt+si-1)
+  }
+  #points(houses, col="black")
+  dirsgs=streets$dirsgs
+  segments(dirsgs$x1, dirsgs$y1, dirsgs$x2, dirsgs$y2, col="blue")
+  segments(p1x[1:conn_cnt], p1y[1:conn_cnt], p2x[1:conn_cnt], p2y[1:conn_cnt],
+    col="red")
+  dev.off()
+}
+
+
 generate.streets <- function(block_cnt) {
   X <- rHardcore(block_cnt, 0.05, square(1))
   voronoi<-deldir(X, rw=c(0, 1, 0, 1))
@@ -96,13 +136,21 @@ generate.streets <- function(block_cnt) {
   list(x=x, y=y, p0=p0, p1=p1, dirsgs=dsgs)
 }
 
-
-sirgenerate <- function(house_cnt, block_cnt, run_cnt) {
-  houses<-rHardcore(house_cnt, 0.02, square(1))
+landscape.generate <- function(house_cnt, block_cnt) {
+    houses<-rHardcore(house_cnt, 0.02, square(1))
 
   streets<-generate.streets(block_cnt)
   crossings<-intersections(houses$x, houses$y, streets$x, streets$y,
     streets$p0, streets$p1)
+
+  houses.plot(houses, streets, crossings)
+  list(houses=houses, crossings=crossings)
+}
+
+sirgenerate <- function(house_cnt, block_cnt, run_cnt) {
+  land <- landscape.generate(house_cnt, block_cnt)
+  houses<-land$houses
+  crossings<-land$crossings
 
   dx<-pairdist(houses)
   start<-center.point(houses)
@@ -226,7 +274,8 @@ infection.times.hazard <- function(filename) {
 }
 
 # res<-bugtest(1000)
-res<-sirgenerate(100, 10, 30)
+# res<-sirgenerate(10, 5, 1)
+landscape.generate(10, 5)
 # warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
 # infection.times.hazard("z.h5")

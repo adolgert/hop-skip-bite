@@ -90,7 +90,7 @@ Intersection(const Point& p0, const Point& p1, const Point& p2,
   cross_product(u, v, l1);
   double w[3];
   cross_product(l0, l1, w);
-  if (w!=0) {
+  if (w[2]!=0) {
     double x=w[0]/w[2];
     double y=w[1]/w[2];
     // Check for denormalization. Call that intersection-not-found.
@@ -273,7 +273,7 @@ struct StatusSort {
    *
    *  Two horizontal lines intersect only at start or end points.
    */
-  bool operator()(const TEntry& a, const TEntry& b) {
+  bool operator()(const TEntry& a, const TEntry& b) const {
     double ax;
     double atheta;
     double bx;
@@ -293,13 +293,16 @@ struct StatusSort {
     }
     atheta=angle_of(a);
     btheta=angle_of(b);
+    if (std::abs(atheta)>M_PI || std::abs(btheta)>M_PI) {
+      throw std::runtime_error("Angle outside of +=pi.");
+    }
     if (atheta!=btheta) {
       return atheta<btheta;
     }
     return locval.at(a.where)<locval.at(b.where);
   }
 
-  double angle_of(const TEntry& t) {
+  double angle_of(const TEntry& t) const {
     const Point& p0=points[lines[t.seg].p0];
     const Point& p1=points[lines[t.seg].p1];
     double dy=p0.y-p1.y;
@@ -319,12 +322,16 @@ struct StatusSort {
       }
     } else {
       // Middle points should return from 0 to pi.
-      angle+=M_PI;
+      if (angle<0) {
+        angle+=M_PI;
+      } else {
+        ; // angle=angle
+      }
     }
     return angle;
   }
 
-  double x_intercept_of(const TEntry& t) {
+  double x_intercept_of(const TEntry& t) const {
     const Point& p0=points[lines[t.seg].p0];
     const Point& p1=points[lines[t.seg].p1];
     const Point& p=points[current_point];
@@ -345,6 +352,38 @@ struct StatusSort {
 
 const std::map<IntLoc,int> StatusSort::locval={{IntLoc::Up, 1},
   {IntLoc::Middle, 2}, {IntLoc::Down, 3}, {IntLoc::None, 4}};
+
+void CheckStatusSort() {
+  std::vector<Point> points;
+  std::vector<Segment> lines;
+  // the cases to test are:
+  // not-horizontal, horizontal.
+  // upper, middle, lower points.
+  for (int i=0; i<4; ++i) {
+    for (int j=0; j<4; ++j) {
+      double di=i;
+      double dj=j;
+      points.push_back({di, dj});
+    }
+  }
+  PointIdx curpt=0*4+0;
+  StatusSort sorter(points, lines, curpt);
+  lines.push_back({0*4+1, 1*4+0});
+  lines.push_back({1*4+1, 1*4+0});
+  if(sorter({0, curpt, IntLoc::Down}, {1, curpt, IntLoc::Down})!=true) {
+    BOOST_LOG_TRIVIAL(error)<<"Lines 0 and 1 wrong order.";
+  }
+  lines.push_back({0*4+0, 1*4+1});
+  lines.push_back({2*4+0, 1*4+1});
+  curpt=0*4+1;
+  if (sorter({2, curpt, IntLoc::Up}, {3, curpt, IntLoc::Up})!=true) {
+    BOOST_LOG_TRIVIAL(error)<<"Lines 2-3 wrong order.";
+  }
+  lines.push_back({1*4+1, 2*4+1});
+  if (sorter({2, curpt, IntLoc::Up}, {4, curpt, IntLoc::Up})!=true) {
+    BOOST_LOG_TRIVIAL(error)<<"Lines 2-4 wrong order.";
+  }
+}
 
 
 void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
@@ -490,6 +529,49 @@ void graphical(const std::vector<Point>& points,
   sc << std::endl;
 }
 
+bool bSegDebug=true;
+
+void CheckStatus(const std::set<TEntry,StatusSort>& T, const StatusSort& ss) {
+  // Same segment shouldn't be in twice.
+  std::set<SegmentIdx> segs;
+  std::stringstream segstr;
+  for (const auto& t : T) {
+    segstr << t.seg;
+    if (t.where==IntLoc::Up) segstr << "u ";
+    else if (t.where==IntLoc::Middle) segstr << "c ";
+    else if (t.where==IntLoc::Down) segstr << "l ";
+    else segstr << "x ";
+    auto res=segs.insert(t.seg);
+    if (!res.second) {
+      BOOST_LOG_TRIVIAL(error) << "Found segment twice " << t.seg;
+    } else {
+    }
+  }
+  BOOST_LOG_TRIVIAL(debug)<< "T "<< segstr.str();
+  // Check that they are ordered according to status sort.
+  auto statiter=T.begin();
+  auto nextiter=statiter;
+  bool ordered=true;
+  if (nextiter!=T.end()) {
+    ++nextiter;
+    while (nextiter!=T.end()) {
+      if (ss(*statiter, *nextiter)==false) {
+        BOOST_LOG_TRIVIAL(error)<<"Segments out of order "
+        << statiter->seg << "-" << nextiter->seg;
+        ordered=false;
+      } else {
+        // BOOST_LOG_TRIVIAL(debug)<<"Segments in order "
+        // << statiter->seg << "-" << nextiter->seg;
+      }
+      ++statiter;
+      ++nextiter;
+    }
+  }
+  if (!ordered) {
+    throw std::runtime_error("Segments out of order");
+  }
+}
+
 /*! Find intersections among line segments.
  *  Reading "Computational Geometry" by Berg et al., Chapter 2.
  */
@@ -536,7 +618,7 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
   std::cout << "Insert all segment endpoints into queue" << std::endl;
   for (size_t ins_idx=0; ins_idx<lines.size(); ++ins_idx) {
     const auto& line=lines[ins_idx];
-    if (line.p0 < line.p1) {
+    if (points[line.p0] < points[line.p1]) {
       Q.emplace(line.p0, QEntry{ins_idx, IntLoc::Up});
       Q.emplace(line.p1, QEntry{ins_idx, IntLoc::Down});
     } else {
@@ -548,11 +630,50 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
 
   auto next_event=Q.begin();
   while (next_event!=Q.end()) {
+    if (bSegDebug) {
+      CheckStatusSort();
+      // Check invariant on Q: same pair insects only once in Q.
+      // All intersections don't repeat a segment.
+      std::set<std::pair<SegmentIdx,SegmentIdx>> segsect;
+      auto qiter=Q.begin();
+      while (qiter!=Q.end()) {
+        auto qp=qiter->first;
+        std::set<SegmentIdx> segs;
+        while (qp==qiter->first) {
+          auto seg=qiter->second.seg;
+          if (segs.find(seg)!=segs.end()) {
+            BOOST_LOG_TRIVIAL(error)<<"Same segment listed twice for one point"
+              << " point " << qp << " seg " << seg;
+          }
+          segs.insert(seg);
+          ++qiter;
+        }
+        auto segstart=segs.begin();
+        while (segstart!=segs.end()) {
+          auto segfinish=segstart;
+          ++segfinish;
+          while (segfinish!=segs.end()) {
+            SegmentIdx l=std::min(*segstart, *segfinish);
+            SegmentIdx m=std::max(*segstart, *segfinish);
+            auto segpair=std::make_pair(l,m);
+            auto res=segsect.insert(segpair);
+            if (res.second==false) {
+              BOOST_LOG_TRIVIAL(error) << "Same intersection twice for segs "
+              << l << " and " << m;
+            }
+            ++segfinish;
+          }
+          ++segstart;
+        }
+      }
+    }
+
     PointIdx p=next_event->first;
-    using SegSet=std::set<QEntry>;
+    using SegSet=std::set<SegmentIdx>;
     SegSet L;
     SegSet C;
     SegSet U;
+    std::set<QEntry> UC;
 
     auto r=Q.equal_range(p);
     std::cout << "Line segments associated with " << p << ": ";
@@ -560,11 +681,13 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
       const QEntry& entry=ri->second;
       std::cout << entry.seg << ' ';
       if (entry.where==IntLoc::Up) {
-        U.insert(entry);
+        U.insert(entry.seg);
+        UC.insert(entry);
       } else if (entry.where==IntLoc::Down) {
-        L.insert(entry);
+        L.insert(entry.seg);
       } else if (entry.where==IntLoc::Middle) {
-        C.insert(entry);
+        C.insert(entry.seg);
+        UC.insert(entry);
       } else {
         assert(false);
         BOOST_LOG_TRIVIAL(error)<<"Segment lacks where classification.";
@@ -575,15 +698,11 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
     std::cout << "next event p=" << p << " segs=";
     std::cout << std::endl << "queue length " << Q.size() << std::endl;
 
-    std::set<SegmentIdx> LUC;
-    for (auto uu : U) LUC.insert(uu.seg);
-    for (auto ll : L) LUC.insert(ll.seg);
-    for (auto cc : C) LUC.insert(cc.seg);
-    std::set<SegmentIdx> LC;
-    for (auto llc : L) LC.insert(llc.seg);
-    for (auto clc : C) LC.insert(clc.seg);
-    SegSet UC(U.begin(), U.end());
-    UC.insert(C.begin(), C.end());
+    std::set<SegmentIdx> LUC(L.begin(), L.end());
+    LUC.insert(U.begin(), U.end());
+    LUC.insert(C.begin(), C.end());
+    std::set<SegmentIdx> LC(L.begin(), L.end());
+    LC.insert(C.begin(), C.end());
 
     // 3-4. If L, U, C contain more than one segment. Report as intersection.
     // Insert them in a set in case L and U point to the same segment.
@@ -605,36 +724,58 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
     // The trick to using the sorted set is to insert a dummy point
     // and then search nearby.
     if (LC.size()>0) {
+      BOOST_LOG_TRIVIAL(debug)<<"LC.size() "<<LC.size();
       TEntry tdel{*LC.begin(), sweep_p, IntLoc::None};
       auto tdel_ins=T.insert(tdel);
       auto tdel_save=tdel_ins.first;
+      BOOST_LOG_TRIVIAL(debug)<<"LC.size() inserted "<<tdel_ins.second;
       auto low_iter=tdel_save;
       auto high_iter=tdel_save;
       ++high_iter;
       int search_cnt=0;
-      auto lc_cnt=LC.size();
-      while (LC.size()>0) {
+      std::vector<StatusType::iterator> to_erase;
+      bool bLeftRun=true;
+      bool bRightRun=true;
+      while (to_erase.size()<LC.size() && (bLeftRun || bRightRun)) {
+        BOOST_LOG_TRIVIAL(debug)<<"LC.size() Low iter "<<low_iter->seg;
         if (low_iter!=T.begin()) {
           --low_iter;
           auto low_found=LC.find(low_iter->seg);
           if (low_found!=LC.end()) {
-            T.erase(low_iter);
-            LC.erase(low_found);
+            to_erase.push_back(low_iter);
           }
+        } else {
+          bLeftRun=false;
         }
         if (high_iter!=T.end()) {
+          BOOST_LOG_TRIVIAL(debug)<<"LC.size() High iter "<<high_iter->seg;
           auto high_found=LC.find(high_iter->seg);
           if (high_found!=LC.end()) {
-            T.erase(high_iter);
-            LC.erase(high_found);
+            to_erase.push_back(high_iter);
           }
           ++high_iter;
+        } else {
+          bRightRun=false;
         }
         ++search_cnt;
       }
+      std::stringstream lcstr;
+      for (auto lprint : LC) {
+        lcstr << lprint << ' ';
+      }
+      if (to_erase.size()<LC.size()) {
+        BOOST_LOG_TRIVIAL(error)<<"Didn't find all segs in LC: " << lcstr.str();
+        CheckStatus(T, T_sort);
+        throw std::runtime_error("Could not find segments to erase");
+      }
+      BOOST_LOG_TRIVIAL(debug)<<"LC.size() erasing "<<lcstr.str();
+      for (auto erase_it : to_erase) {
+        T.erase(erase_it);
+      }
+      BOOST_LOG_TRIVIAL(debug)<<"LC.size() erasing last";
       T.erase(tdel_save);
-      BOOST_LOG_TRIVIAL(debug)<<"LC search took steps "<<search_cnt
-        <<" for "<<lc_cnt<<" entries.";
+      BOOST_LOG_TRIVIAL(debug)<<"LC.size() search took steps "<<search_cnt
+        <<" for "<<LC.size()<<" entries.";
     }
 
     // Now we can set the current point for the sort with impunity.
@@ -645,10 +786,11 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
     // 7. if U+C==0
     std::cout << "UC size " << UC.size() << std::endl;
     if (UC.size()==0) {
+      if (bSegDebug) CheckStatus(T, T_sort);
       std::cout << "size(UC)=0" << std::endl;
       // 8. let sl and sr be the left and right neighbors of p.
       auto Qlp=L.begin();
-      auto probe_ins=T.insert(TEntry{Qlp->seg, p, IntLoc::None});
+      auto probe_ins=T.insert(TEntry{*Qlp, p, IntLoc::None});
       auto probe_iter=probe_ins.first;
       if (probe_iter!=T.begin()) {
         auto sl=probe_iter;
@@ -668,11 +810,13 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
       }
       T.erase(probe_iter);
     } else {
+      std::cout << "size(UC) " << UC.size() << std::endl;
       StatusType::iterator least_u;
       StatusType::iterator greatest_u;
       bool first=true;
       for (const QEntry& qe_ins : UC) {
         auto insiter=T.insert({qe_ins.seg, p, qe_ins.where});
+        BOOST_LOG_TRIVIAL(debug)<<"Insert seg "<<qe_ins.seg;
         if (first) {
           least_u=insiter.first;
           greatest_u=insiter.first;
@@ -686,6 +830,7 @@ segment_intersections_sweep(const std::vector<std::pair<double,double>>& inpoint
           }
         }
       }
+      if (bSegDebug) CheckStatus(T, T_sort);
       std::cout << "\tLeast u "<<least_u->seg<<'-'<<least_u->pt
         <<" greatest u " <<greatest_u->seg <<'-'
         <<greatest_u->pt << std::endl;
