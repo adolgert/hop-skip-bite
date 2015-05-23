@@ -13,6 +13,11 @@ std::tuple<std::vector<std::pair<double,double>>,
 segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
     const std::vector<std::pair<size_t,size_t>>& inlines);
 
+std::tuple<std::vector<std::pair<double,double>>,
+  std::multimap<size_t,size_t>>
+segment_intersections_sweep(
+    const std::vector<std::pair<double,double>>& inpoints,
+    const std::vector<std::pair<size_t,size_t>>& inlines);
 
 // _SEGMENT_INTERSECT_H_
 #endif

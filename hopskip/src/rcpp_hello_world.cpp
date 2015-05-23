@@ -89,7 +89,7 @@ struct TKeyWriter {
 // [[Rcpp::export]]
 SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
-  afidd::LogInit("info");
+  afidd::LogInit("debug");
 
   NumericVector unitsx(sunitsx);
   NumericVector unitsy(sunitsy);
@@ -145,7 +145,7 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
   BOOST_LOG_TRIVIAL(debug) << "Calling segment_intersections";
   std::vector<std::pair<double,double>> intpoints;
     std::multimap<size_t,size_t> intverts;
-    std::tie(intpoints, intverts)=segment_intersections(points, segments);
+    std::tie(intpoints, intverts)=segment_intersections_sweep(points, segments);
 
   BOOST_LOG_TRIVIAL(debug) << "Intersections to pass back ";
   for (auto mmi : intverts) {
