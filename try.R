@@ -18,30 +18,32 @@ center.point <- function(spatdata) {
 }
 
 
-houses.plot <- function(houses, streets, crossings) {
+houses.plot <- function(houses, streets, filename="points.pdf", crossings=NA) {
   house_cnt<-length(houses$x)
-  stopifnot(length(crossings)==house_cnt*house_cnt)
-  print(crossings)
-  p1x=vector(mode="numeric", house_cnt*house_cnt)
-  p1y=vector(mode="numeric", house_cnt*house_cnt)
-  p2x=vector(mode="numeric", house_cnt*house_cnt)
-  p2y=vector(mode="numeric", house_cnt*house_cnt)
-  conn_idx <- 1
-  for (i in 1:(house_cnt-1)) {
-    for (j in (i+1):house_cnt) {
-      if (crossings[(i-1)*house_cnt+j]==0) {
-        p1x[conn_idx] <- houses$x[i]
-        p1y[conn_idx] <- houses$y[i]
-        p2x[conn_idx] <- houses$x[j]
-        p2y[conn_idx] <- houses$y[j]
-        conn_idx <- conn_idx + 1
-      } # else no crossing
+  if (!is.na(crossings)) {
+    stopifnot(length(crossings)==house_cnt*house_cnt)
+    print(crossings)
+    p1x=vector(mode="numeric", house_cnt*house_cnt)
+    p1y=vector(mode="numeric", house_cnt*house_cnt)
+    p2x=vector(mode="numeric", house_cnt*house_cnt)
+    p2y=vector(mode="numeric", house_cnt*house_cnt)
+    conn_idx <- 1
+    for (i in 1:(house_cnt-1)) {
+      for (j in (i+1):house_cnt) {
+        if (crossings[(i-1)*house_cnt+j]==0) {
+          p1x[conn_idx] <- houses$x[i]
+          p1y[conn_idx] <- houses$y[i]
+          p2x[conn_idx] <- houses$x[j]
+          p2y[conn_idx] <- houses$y[j]
+          conn_idx <- conn_idx + 1
+        } # else no crossing
+      }
     }
+    conn_cnt <- conn_idx - 1
+    print(paste("There are", conn_cnt, "crossings"))
   }
-  conn_cnt <- conn_idx - 1
-  print(paste("There are", conn_cnt, "crossings"))
 
-  pdf("points.pdf")
+  pdf(filename)
   plot(0:1, 0:1, type="n")
   for (hi in 1:house_cnt) {
     text(houses$x[hi], houses$y[hi], hi-1)
@@ -52,8 +54,10 @@ houses.plot <- function(houses, streets, crossings) {
   #points(houses, col="black")
   dirsgs=streets$dirsgs
   segments(dirsgs$x1, dirsgs$y1, dirsgs$x2, dirsgs$y2, col="blue")
-  segments(p1x[1:conn_cnt], p1y[1:conn_cnt], p2x[1:conn_cnt], p2y[1:conn_cnt],
-    col="red")
+  if (!is.na(crossings)) {
+    segments(p1x[1:conn_cnt], p1y[1:conn_cnt], p2x[1:conn_cnt], p2y[1:conn_cnt],
+      col="red")
+  }
   dev.off()
 }
 
@@ -136,24 +140,58 @@ generate.streets <- function(block_cnt) {
   list(x=x, y=y, p0=p0, p1=p1, dirsgs=dsgs)
 }
 
-landscape.generate <- function(house_cnt, block_cnt) {
-    houses<-rHardcore(house_cnt, 0.02, square(1))
+streets.write <- function(streets, basename="streets") {
+  streetsxy<-list(x=streets$x, y=streets$y)
+  write.csv(streetsxy, file=paste(basename, "xy.txt", sep=""))
+  streetspt<-list(p0=streets$p0, p1=streets$p1)
+  write.csv(streetspt, file=paste(basename, "pts.txt", sep=""))
+  write.csv(streets$dirsgs, file=paste(basename, "dirsgs.txt", sep=""))
+}
+
+streets.read <- function(basename="streets") {
+  xy <- read.csv(paste(basename, "xy.txt", sep=""))
+  pts <- read.csv(paste(basename, "pts.txt", sep=""))
+  dirsgs <- read.csv(paste(basename, "dirsgs.txt", sep=""))
+  list(x=xy$x, y=xy$y, p0=pts$p0, p1=pts$p1, dirsgs=dirsgs)
+}
+
+# Save houses and street blocks to files.
+landscape.generate <- function(house_cnt, block_cnt, streetsbase="streets") {
+  houses<-rHardcore(house_cnt, 0.01, square(1))
 
   streets<-generate.streets(block_cnt)
+  houses.plot(houses, streets, filename="nocross.pdf")
+
+  write.csv(houses, file="houses.txt")
+  streets.write(streets, basename=streetsbase)
+
+  list(houses=houses, streets=streets)
+}
+
+landscape.crossings <- function( housesfile="houses.txt",
+    streetsfile="streets" ) {
+  houses <- read.csv(housesfile)
+  streets <- streets.read(streetsfile)
   crossings<-intersections(houses$x, houses$y, streets$x, streets$y,
     streets$p0, streets$p1)
 
-  houses.plot(houses, streets, crossings)
+  houses.plot(houses, streets, crossings=crossings, filename="landscape.pdf")
+  write.csv(crossings, file="crossings.txt")
   list(houses=houses, crossings=crossings)
 }
 
-sirgenerate <- function(house_cnt, block_cnt, run_cnt) {
-  land <- landscape.generate(house_cnt, block_cnt)
-  houses<-land$houses
-  crossings<-land$crossings
+
+sirgenerate <- function(housesfile="houses.txt", crossingsfile="crossings.txt",
+    outfile="z.h5", run_cnt=1) {
+  houses.table <- read.csv(housesfile)
+  print(houses.table)
+  houses <- ppp(houses.table$x, houses.table$y)
+  print(houses)
+  crossings <- read.csv(crossingsfile)$x
 
   dx<-pairdist(houses)
   start<-center.point(houses)
+  print(paste("start is", start))
   p<-c(individual_cnt=dim(dx)[[1]], seed=33333, N0=1.0, beta0=0.3, beta1=0.01,
     beta2=0.1, gamma=0.1, cutoff=0.1, growthrate=4.5, carrying=1000.0,
     runs=run_cnt, initial=start, streetfactor=0.4
@@ -165,7 +203,6 @@ sirgenerate <- function(house_cnt, block_cnt, run_cnt) {
   p["beta1"] <- p["beta0"]/20
   print(p)
 
-  outfile="z.h5"
   create_file(outfile)
   write_locations(outfile, houses)
   callback_env<-new.env(parent=emptyenv())
@@ -275,7 +312,8 @@ infection.times.hazard <- function(filename) {
 
 # res<-bugtest(1000)
 # res<-sirgenerate(10, 5, 1)
-landscape.generate(100, 5)
+#landscape.generate(50, 10)
+
 # warnings()
 # foreach.trajectory("1000.h5", end.times, 3)
 # infection.times.hazard("z.h5")

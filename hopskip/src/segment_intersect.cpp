@@ -421,7 +421,7 @@ void FindNewEvent(SegmentIdx sl_idx, SegmentIdx sr_idx, PointIdx p,
       auto slsearch=sliter;
       bool searching_left=true;
       while (searching_left && !bFound &&
-          std::abs(points[slsearch->first].y-intersection.y)<0.001) {
+          std::abs(points[slsearch->first].y-intersection.y)<0.00001) {
         PointIdx qpt=slsearch->first;
         bool saw_l=false;
         bool saw_r=false;
