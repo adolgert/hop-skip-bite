@@ -57,7 +57,7 @@ class CallbackEventObserver : public hsb::TrajectoryObserver {
 
     auto df=DataFrame::create(Named("when")=when,
       Named("event")=what, Named("whom")=who, Named("who")=who2);
-    BOOST_LOG_TRIVIAL(trace)<<"Writing results to callback";
+    BOOST_LOG_TRIVIAL(info)<<"Writing results to callback";
     callback_(df);
     when_.clear();
     what_.clear();
@@ -281,7 +281,7 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
 // [[Rcpp::export]]
 DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
     SEXP parametersS, Rcpp::Function callback) {
-  afidd::LogInit("debug");
+  afidd::LogInit("info");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
@@ -311,12 +311,21 @@ DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
   auto gspn=hsb::bugs::BugsGSPN(params, distance, streets, rng);
 
   int run_cnt=1;
+  double max_time=-1;
   if (parameters.containsElementNamed("runs")) {
     run_cnt=as<int>(parameters["runs"]);
     BOOST_LOG_TRIVIAL(trace)<<"has run cnt";
   } else {
     BOOST_LOG_TRIVIAL(trace)<<"doesn't have cnt";
   }
+  if (parameters.containsElementNamed("max_time")) {
+    max_time=as<double>(parameters["max_time"]);
+    BOOST_LOG_TRIVIAL(info)<<"has max time " << max_time;
+  } else {
+    BOOST_LOG_TRIVIAL(trace)<<"doesn't have max time";
+  }
+  params["max_time"]=max_time;
+
   for (int run_idx=0; run_idx<run_cnt; ++run_idx) {
     hsb::bugs::SIR_run(params, gspn, observer, rng);
   }

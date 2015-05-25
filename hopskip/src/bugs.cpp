@@ -200,12 +200,11 @@ void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
 
 
 template<typename GSPN, typename SIRState>
-struct SIROutput {
+struct BugOutput {
  public:
-  SIROutput(const GSPN& gspn, int64_t individual_cnt,
+  BugOutput(const GSPN& gspn, double end_time,
     std::shared_ptr<TrajectoryObserver> observer)
-  : gspn_(gspn), individual_cnt_(individual_cnt), observer_(observer),
-    infected_cnt_(0) {}
+  : gspn_(gspn), end_time_(end_time), observer_(observer) {}
 
   bool operator()(const SIRState& state) {
     auto transition=gspn_.VertexTransition(state.last_transition);
@@ -217,10 +216,74 @@ struct SIROutput {
             // infection event.
             observer_->event(state.CurrentTime(), 1, transition.j,
               transition.i);
-            infected_cnt_+=1;
           } else {
             // ignore infection of already infected
           }
+        }
+        break;
+
+      case 5:
+        {
+          auto house=gspn_.PlaceVertex({transition.i, 0});
+          auto cnt=Length<0>(state.marking, house);
+          observer_->event(state.CurrentTime(), 5, transition.i, cnt);
+        }
+        break;
+
+      case 6:
+        {
+          auto house=gspn_.PlaceVertex({transition.i, 0});
+          auto cnt=Length<0>(state.marking, house);
+          observer_->event(state.CurrentTime(), 6, transition.i, cnt);
+        }
+        break;
+        
+      case 3:
+        {
+        // notification event
+          auto house=gspn_.PlaceVertex({transition.i, 0});
+          auto cnt=Length<0>(state.marking, house);
+          observer_->event(state.CurrentTime(), 3, transition.i, cnt);
+        }
+        break;
+
+      default:
+        assert(false);
+        break;
+    }
+    return state.CurrentTime()<end_time_;
+  }
+
+  void initial(const SIRState& state) {}
+
+  void final(const SIRState& state) {
+    observer_->final();
+  }
+
+ private:
+  const GSPN& gspn_;
+  int64_t end_time_;
+  std::shared_ptr<TrajectoryObserver> observer_;
+};
+
+
+
+template<typename GSPN, typename SIRState>
+struct SIROutput {
+ public:
+  SIROutput(const GSPN& gspn, int64_t individual_cnt,
+    std::shared_ptr<TrajectoryObserver> observer)
+  : gspn_(gspn), individual_cnt_(individual_cnt), observer_(observer),
+    infected_cnt_(1) {}
+
+  bool operator()(const SIRState& state) {
+    auto transition=gspn_.VertexTransition(state.last_transition);
+    switch (transition.kind) {
+      case 1: // move
+        {
+            // infection event.
+          observer_->event(state.CurrentTime(), 1, transition.j,
+            transition.i);
         }
         break;
 
@@ -236,7 +299,7 @@ struct SIROutput {
           }
         }
         break;
-                
+        
       case 3:
         // notification event
         observer_->event(state.CurrentTime(), 3, transition.i, 0);
@@ -251,7 +314,9 @@ struct SIROutput {
 
   void initial(const SIRState& state) {}
 
-  void final(const SIRState& state) {}
+  void final(const SIRState& state) {
+    observer_->final();
+  }
 
  private:
   const GSPN& gspn_;
@@ -331,8 +396,10 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
   using Dynamics=StochasticDynamics<SIRGSPN,SIRState,RandGen>;
   Dynamics dynamics(gspn, {&competing});
 
-  SIROutput<SIRGSPN,SIRState> output_function(gspn, individual_cnt,
+  double max_time=boost::any_cast<double>(params["max_time"]);
+  SIROutput<SIRGSPN,SIRState> sir_output_function(gspn, individual_cnt,
     observer);
+  BugOutput<SIRGSPN,SIRState> bug_output_function(gspn, max_time, observer);
 
   dynamics.Initialize(&state, &rng);
 
@@ -349,7 +416,11 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
           << " new_time "<<new_time;
       }
       last_time=new_time;
-      running=output_function(state);
+      if (max_time>0) {
+        running=bug_output_function(state);
+      } else {
+        running=sir_output_function(state);
+      }
     } else {
       BOOST_LOG_TRIVIAL(info)<<"No transitions left to fire "
           <<state.CurrentTime();
@@ -358,8 +429,13 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
     // SMVLOG(BOOST_LOG_TRIVIAL(debug)<<"Competing Processes: size "
     //     <<v.first<<" infinities "<<v.second);
   }
-  BOOST_LOG_TRIVIAL(info)<<"Reached end time "<<state.CurrentTime();
-  output_function.final(state);
+  if (max_time>0) {
+    BOOST_LOG_TRIVIAL(info)<<"Reached end time bug "<<state.CurrentTime();
+    bug_output_function.final(state);
+  } else {
+    BOOST_LOG_TRIVIAL(info)<<"Reached end time sir "<<state.CurrentTime();
+    sir_output_function.final(state);
+  }
   return 0;
 }
 

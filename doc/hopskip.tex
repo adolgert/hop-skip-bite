@@ -642,6 +642,19 @@ Try fixing $\alpha_1=1$ and $\alpha_2=0$. Then
   K_1=\frac{R_0-1}{R_0}N=\frac{\lambda-\mu}{\lambda}N.
 \end{equation}
 
+You tell me $K_1=1000$ and $r=4.5$. I'll make a rule
+of thumb that $R_0=\lambda/\mu=1.5$. Then $r=\mu(1.5-1)=\mu/2$,
+so $\mu=2r$ That means $\lambda=3r$. As well,
+$N=K_1 R_0/(R_0-1)=K_1 (3/2)/(1/2)=3K_1$.
+
+
+\begin{figure}
+\centerline{\includegraphics[width=10cm]{bug_trajectory.pdf}}
+\caption{Trajectories from a Verhulst simulation of one
+house. Parameters are equivalent to
+$N_0=20\:\mbox{bugs}$, $r=4.5\:\mbox{bugs/bug--yr}$, $K=1000\:\mbox{bugs}.$\label{fig:bug_trajectory}}
+\end{figure}
+
 \bibliographystyle{plain}
 \bibliography{hopskip}
 \end{document}

@@ -12,4 +12,8 @@ verhulst.h5: try.R sir_run.R houses.txt crossings.txt
 	R --no-save --args houses.txt crossings.txt verhulst.h5 2 < verhulst_run.R
 
 verhulst_single.h5:  try.R sir_run.R one_house.txt one_house_cross.txt
-	R --no-save --args one_house.txt one_house_cross.txt verhulst_single.h5 2 < verhulst_run.R
+	R --no-save --args one_house.txt one_house_cross.txt verhulst_single.h5 100 < verhulst_run.R
+
+bug_trajectory.pdf: try.R bugplot.R
+	R --no-save --args verhulst_single.h5 bug_trajectory.pdf < bugplot.R
+	

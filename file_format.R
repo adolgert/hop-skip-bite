@@ -31,6 +31,7 @@ write_locations <- function(outfile, locations) {
 }
 
 write_events <- function(outfile, event_frame, parameters) {
+  print(paste("writing to", outfile))
   trajectory_name=next_dataset(outfile)
   trajectory_group=paste("trajectory", trajectory_name, sep="/")
   h5createGroup(outfile, trajectory_group)
