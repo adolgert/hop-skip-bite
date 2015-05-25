@@ -13,86 +13,6 @@ using namespace smv;
 namespace hsb {
 namespace bugs {
 
-enum class Parameter : int { none, birth, death, carrying, move0,
-    move1, gamma, alpha1, alpha2, alpha3 };
-
-// A token is an instance of this class.
-struct AnonymousToken {
-    AnonymousToken()=default;
-    inline friend
-    std::ostream& operator<<(std::ostream& os, const AnonymousToken& at) {
-        return os << "T";
-    }
-};
-
-
-// Identifies a place uniquely.
-struct SIRPlace
-{
-  int64_t individual;
-  int64_t disease;
-  SIRPlace()=default;
-  SIRPlace(int64_t i, int64_t d) : individual(i), disease(d) {}
-  friend inline
-  bool operator<(const SIRPlace& a, const SIRPlace& b) {
-    return afidd::smv::LazyLess(a.individual, b.individual,
-        a.disease, b.disease);
-  }
-
-  friend inline
-  bool operator==(const SIRPlace& a, const SIRPlace& b) {
-    return (a.individual == b.individual) && (a.disease==b.disease);
-  }
-
-  friend inline
-  std::ostream& operator<<(std::ostream& os, const SIRPlace& cp) {
-    return os << '(' << cp.individual << ", " << cp.disease << ')';
-  }
-};
-
-
-
-// This identifies a transition uniquely.
-struct SIRTKey {
-    int64_t i;
-    int64_t j;
-    int64_t kind;
-    SIRTKey()=default;
-    SIRTKey(int64_t i, int64_t j, int64_t kind) : i(i), j(j), kind(kind) {}
-
-    friend inline
-    bool operator<(const SIRTKey& a, const SIRTKey& b) {
-        return afidd::smv::LazyLess(a.i, b.i, a.j, b.j, a.kind, b.kind);
-    }
-
-    friend inline
-    bool operator==(const SIRTKey& a, const SIRTKey& b) {
-        return (a.i==b.i) && (a.j==b.j) && (a.kind==b.kind);
-    }
-
-    friend inline
-    std::ostream& operator<<(std::ostream& os, const SIRTKey& cp) {
-        return os << '(' << cp.i << ',' << cp.j << ',' << cp.kind << ')';
-    }
-};
-
-
-// This is as much of the marking as the transition will see.
-using Local=LocalMarking<Uncolored<AnonymousToken>>;
-// Extra state to add to the system state. Will be passed to transitions.
-struct WithParams {
-  // Put our parameters here.
-  std::map<Parameter,double> params;
-};
-
-
-// The transition needs to know the local marking and any extra state.
-using SIRTransition=ExplicitTransition<Local,RandGen,WithParams>;
-
-using Dist=TransitionDistribution<RandGen>;
-using ExpDist=ExponentialDistribution<RandGen>;
-
-
 
 
 // Infect a hop-distance away with one hazard.
@@ -151,15 +71,16 @@ class Death : public SIRTransition {
 
 // Infect a hop-distance away with one hazard.
 class Move0 : public SIRTransition {
+  double street_factor_;
   public:
-    Move0() {}
+    Move0(double street_factor) : street_factor_(street_factor) {}
 
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
         int64_t S=lm.template Length<0>(0);
         if (S>0) {
-            double rate=S*s.params.at(Parameter::move0)*
+            double rate=street_factor_*S*s.params.at(Parameter::move0)*
               S/s.params.at(Parameter::carrying);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
@@ -225,12 +146,10 @@ class Notify : public SIRTransition {
 };
 
 
-using SIRGSPN=
-    ExplicitTransitions<SIRPlace, SIRTKey, Local, RandGen, WithParams>;
-
 
 void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
-      double cutoff, RandGen& rng) {
+      const std::vector<int>& streets, double cutoff, double street_factor,
+      RandGen& rng) {
     using Edge=BuildGraph<SIRGSPN>::PlaceEdge;
     int64_t cnt=std::lround(std::sqrt(pairwise.size()));
 
@@ -258,9 +177,11 @@ void BuildSystem(SIRGSPN& bg, const std::vector<double>& pairwise,
         for (int64_t target_idx=0; target_idx<cnt; ++target_idx) {
             auto target=SIRPlace{target_idx, 0};
             if (pairwise[source_idx+cnt*target_idx]<cutoff) {
-                bg.AddTransition({source_idx, target_idx, 1},
+              double street_fraction=std::pow(street_factor,
+                  streets[source_idx*cnt+target_idx]);
+              bg.AddTransition({source_idx, target_idx, 1},
                     {Edge{source, -1}, Edge{target, 1}},
-                    std::unique_ptr<SIRTransition>(new Move0()));
+                    std::unique_ptr<SIRTransition>(new Move0(street_fraction)));
             } else {
                 bg.AddTransition({source_idx, target_idx, 1},
                     {Edge{source, -1}, Edge{target, 1}},
@@ -341,41 +262,64 @@ struct SIROutput {
 
 
 
-int64_t SIR_run(std::map<std::string, boost::any> params,
+SIRGSPN BugsGSPN(std::map<std::string, boost::any> params,
     const std::vector<double>& pairwise_distance,
-    std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
+    const std::vector<int>& streets, RandGen& rng) {
+  BOOST_LOG_TRIVIAL(debug)<<"Entering BugsGSPN";
   assert(params["individual_cnt"].type()==typeid(int64_t));
-  using boost::any_cast;
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 
   int64_t place_cnt=3*individual_cnt;
   int64_t transition_cnt=(individual_cnt*individual_cnt)*2 + individual_cnt;
   SIRGSPN gspn(place_cnt+transition_cnt);
   double cutoff=boost::any_cast<double>(params["cutoff"]);
-  BuildSystem(gspn, pairwise_distance, cutoff, rng);
+  double street_factor=boost::any_cast<double>(params["streetfactor"]);
+
+  BuildSystem(gspn, pairwise_distance, streets, cutoff, street_factor, rng);
+  BOOST_LOG_TRIVIAL(debug)<<"Exiting BugsGSPN";
+  return gspn;
+}
+
+
+int64_t SIR_run(std::map<std::string, boost::any> params,
+    SIRGSPN& gspn,
+    std::shared_ptr<TrajectoryObserver> observer, RandGen& rng) {
+  assert(params["individual_cnt"].type()==typeid(int64_t));
+  using boost::any_cast;
+  int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
+  // -1 to go from R's 1-based to C++'s 0-based.
+  int64_t infected_start=boost::any_cast<int64_t>(params["initial"])-1;
 
   using Mark=Marking<SIRGSPN::PlaceKey, Uncolored<AnonymousToken>>;
   using SIRState=GSPNState<Mark, SIRGSPN::TransitionKey,WithParams>;
 
   SIRState state;
 
-  try {
-    state.user.params[Parameter::birth]=any_cast<double>(params["birth"]);
-    state.user.params[Parameter::death]=any_cast<double>(params["death"]);
-    state.user.params[Parameter::carrying]=any_cast<double>(params["carrying"]);
-    state.user.params[Parameter::alpha1]=any_cast<double>(params["alpha1"]);
-    state.user.params[Parameter::alpha2]=any_cast<double>(params["alpha2"]);
-    state.user.params[Parameter::move0]=any_cast<double>(params["move0"]);
-    state.user.params[Parameter::move1]=any_cast<double>(params["move1"]);
-    state.user.params[Parameter::gamma]=any_cast<double>(params["gamma"]);
-  } catch (boost::bad_any_cast& e) {
-    BOOST_LOG_TRIVIAL(error) << "Bad any_cast in bugs::SIR_Run";
+  static const std::map<Parameter,std::string> par_key = {
+    {Parameter::birth, "birth"},
+    {Parameter::death, "death"},
+    {Parameter::carrying, "carrying"},
+    {Parameter::alpha1, "alpha1"},
+    {Parameter::alpha2, "alpha2"},
+    {Parameter::move0, "move0"},
+    {Parameter::move1, "move1"},
+    {Parameter::gamma, "gamma"},
+    {Parameter::streetfactor, "streetfactor"}
+  };
+
+
+  for (auto& kv : par_key) {
+    try {
+      state.user.params[kv.first]=boost::any_cast<double>(params[kv.second]);
+      BOOST_LOG_TRIVIAL(debug)<<kv.second<<"="<<state.user.params[kv.first];
+    } catch (boost::bad_any_cast) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not cast "<<kv.second;
+    }
   }
 
   int64_t initial_bug_count=boost::any_cast<int64_t>(params["initial_bug_cnt"]);
 
   std::uniform_int_distribution<int64_t> random_individual(0, individual_cnt-1);
-  int64_t infected_start=random_individual(rng);
   for (int64_t init_idx=0; init_idx<initial_bug_count; ++init_idx) {
     Add<0>(state.marking, gspn.PlaceVertex({infected_start, 0}),
         AnonymousToken{});

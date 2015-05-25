@@ -314,7 +314,7 @@ struct SIROutput {
 SIRGSPN SimpleHazardGSPN(std::map<std::string, boost::any> params,
     const std::vector<double>& pairwise_distance,
     const std::vector<int>& streets, RandGen& rng) {
-  BOOST_LOG_TRIVIAL(debug)<<"Entering SIR_run";
+  BOOST_LOG_TRIVIAL(debug)<<"Entering SimpleHazardGSPN";
   assert(params["individual_cnt"].type()==typeid(int64_t));
   int64_t individual_cnt=boost::any_cast<int64_t>(params["individual_cnt"]);
 

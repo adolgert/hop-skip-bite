@@ -273,7 +273,7 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
   for (int run_idx=0; run_idx<run_cnt; ++run_idx) {
     hsb::simple_hazard::SIR_run(params, gspn, observer, rng);
   }
-  return Rcpp::wrap(0);
+  return Rcpp::wrap(run_cnt);
 }
 
 
@@ -281,7 +281,7 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
 // [[Rcpp::export]]
 DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
     SEXP parametersS, Rcpp::Function callback) {
-  afidd::LogInit("info");
+  afidd::LogInit("debug");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
@@ -291,7 +291,7 @@ DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
   BOOST_LOG_TRIVIAL(debug)<<"Unpacking parameters";
 
   static const std::vector<std::string> int_params={
-    "individual_cnt", "initial_bug_cnt", "seed"
+    "individual_cnt", "initial_bug_cnt", "seed", "initial"
   };
   static const std::vector<std::string> float_params={
     "birth", "death", "carrying", "alpha1", "alpha2", "streetfactor",
@@ -302,13 +302,25 @@ DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
   std::map<std::string, boost::any> params;
   ConvertIntParams(parameters, params, int_params);
   ConvertFloatParams(parameters, params, float_params);
+  BOOST_LOG_TRIVIAL(debug)<<"Unpacked parameters";
 
   auto observer=std::make_shared<CallbackEventObserver>(callback);
 
-  int64_t rand_seed=boost::any_cast<int64_t>(params["seed"]);
+  int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
   RandGen rng(rand_seed);
-  hsb::bugs::SIR_run(params, distance, observer, rng);
-  return Rcpp::wrap(0);
+  auto gspn=hsb::bugs::BugsGSPN(params, distance, streets, rng);
+
+  int run_cnt=1;
+  if (parameters.containsElementNamed("runs")) {
+    run_cnt=as<int>(parameters["runs"]);
+    BOOST_LOG_TRIVIAL(trace)<<"has run cnt";
+  } else {
+    BOOST_LOG_TRIVIAL(trace)<<"doesn't have cnt";
+  }
+  for (int run_idx=0; run_idx<run_cnt; ++run_idx) {
+    hsb::bugs::SIR_run(params, gspn, observer, rng);
+  }
+  return Rcpp::wrap(run_cnt);
 }
 
 // [[Rcpp::export]]

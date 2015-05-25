@@ -181,8 +181,8 @@ landscape.crossings <- function( housesfile="houses.txt",
 }
 
 
-sirgenerate <- function(housesfile="houses.txt", crossingsfile="crossings.txt",
-    outfile="z.h5", run_cnt=1) {
+sir.generate <- function(run_cnt=1, outfile="sir.h5",
+    housesfile="houses.txt", crossingsfile="crossings.txt") {
   houses.table <- read.csv(housesfile)
   print(houses.table)
   houses <- ppp(houses.table$x, houses.table$y)
@@ -223,13 +223,37 @@ sirgenerate <- function(housesfile="houses.txt", crossingsfile="crossings.txt",
 
 
 
-bugtest <- function(n) {
-  X<-rHardcore(n, 0.02, square(1))
-  dx<-pairdist(X)
+verhulst.generate <- function(run_cnt=1, outfile="verhulst.h5",
+  housesfile="houses.txt", crossingsfile="crossings.txt") {
+  houses.table <- read.csv(housesfile)
+  print(houses.table)
+  houses <- ppp(houses.table$x, houses.table$y)
+  print(houses)
+  crossings <- read.csv(crossingsfile)$x
+
+  dx<-pairdist(houses)
+  start<-center.point(houses)
+  print(paste("start is", start))
+
   p<-c(individual_cnt=dim(dx)[[1]], seed=33333, birth=0.1, death=0.005,
     carrying=1000.0, move0=0.3, move1=0.001, gamma=0.1, initial_bug_cnt=50,
-    cutoff=0.1)
-  list("locations"=X, "events"=bugs(dx, p))
+    cutoff=0.1, alpha1=1.0, alpha2=0.0, streetfactor=0.4, runs=run_cnt,
+    initial=start)
+
+  create_file(outfile)
+  write_locations(outfile, houses)
+  callback_env<-new.env(parent=emptyenv())
+  callback_env$results=list()
+  save.to.file <- function(arg) {
+    write_events(outfile, arg, p)
+  }
+  add.to.results<-function(arg) {
+    callback_env$results[[length(callback_env$results)+1]]<- arg
+  }
+  
+  print("running")
+  bugs(dx, crossings, p, save.to.file)
+  print("ran")
 }
 
 
