@@ -14,7 +14,7 @@ namespace hsb {
 namespace bugs {
 
 enum class Parameter : int { none, birth, death, carrying, move0,
-    move1, gamma };
+    move1, gamma, alpha1, alpha2, alpha3 };
 
 // A token is an instance of this class.
 struct AnonymousToken {
@@ -106,7 +106,8 @@ class Birth : public SIRTransition {
         int64_t S=lm.template Length<0>(0);
         if (S>0) {
             double rate=S*s.params.at(Parameter::birth)*
-              (1-S/s.params.at(Parameter::carrying));
+              (1-s.params.at(Parameter::alpha1)*S
+                /s.params.at(Parameter::carrying));
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -131,7 +132,9 @@ class Death : public SIRTransition {
         double te, double t0, RandGen& rng) override {
         int64_t S=lm.template Length<0>(0);
         if (S>0) {
-            double rate=S*s.params.at(Parameter::death);
+            double rate=S*s.params.at(Parameter::death)*
+              (1-s.params.at(Parameter::alpha2)*S
+              /s.params.at(Parameter::carrying));
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -154,9 +157,10 @@ class Move0 : public SIRTransition {
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
-        int64_t I=lm.template Length<0>(0);
-        if (I>0) {
-            double rate=I*s.params.at(Parameter::move0);
+        int64_t S=lm.template Length<0>(0);
+        if (S>0) {
+            double rate=S*s.params.at(Parameter::move0)*
+              S/s.params.at(Parameter::carrying);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -178,9 +182,10 @@ class Move1 : public SIRTransition {
     virtual std::pair<bool, std::unique_ptr<Dist>>
     Enabled(const UserState& s, const Local& lm,
         double te, double t0, RandGen& rng) override {
-        int64_t I=lm.template Length<0>(0);
-        if (I>0) {
-            double rate=I*s.params.at(Parameter::move1);
+        int64_t S=lm.template Length<0>(0);
+        if (S>0) {
+            double rate=S*s.params.at(Parameter::move1)
+              *S/s.params.at(Parameter::carrying);
             return {true, std::unique_ptr<ExpDist>(new ExpDist(rate, te))};
         } else {
             return {false, std::unique_ptr<Dist>(nullptr)};
@@ -358,6 +363,8 @@ int64_t SIR_run(std::map<std::string, boost::any> params,
     state.user.params[Parameter::birth]=any_cast<double>(params["birth"]);
     state.user.params[Parameter::death]=any_cast<double>(params["death"]);
     state.user.params[Parameter::carrying]=any_cast<double>(params["carrying"]);
+    state.user.params[Parameter::alpha1]=any_cast<double>(params["alpha1"]);
+    state.user.params[Parameter::alpha2]=any_cast<double>(params["alpha2"]);
     state.user.params[Parameter::move0]=any_cast<double>(params["move0"]);
     state.user.params[Parameter::move1]=any_cast<double>(params["move1"]);
     state.user.params[Parameter::gamma]=any_cast<double>(params["gamma"]);

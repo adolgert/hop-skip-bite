@@ -193,6 +193,35 @@ SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
 }
 
 
+void ConvertIntParams(Rcpp::List& p, std::map<std::string,boost::any>& params,
+    const std::vector<std::string>& int_params) {
+  for (auto iparam : int_params) {
+    try {
+      params[iparam]=int64_t{as<int>(p[iparam])};
+    } catch (...) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<iparam;
+      std::stringstream pmsg;
+      pmsg << "Could not decode " << iparam;
+      throw std::runtime_error(pmsg.str());
+    }
+  }
+}
+
+void ConvertFloatParams(Rcpp::List& p,
+    std::map<std::string,boost::any>& params,
+    const std::vector<std::string>& float_params) {
+  for (auto fparam : float_params) {
+    try {
+      params[fparam]=double{as<double>(p[fparam])};
+    } catch (...) {
+      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<fparam;
+      std::stringstream pmsg;
+      pmsg << "Could not decode " << fparam;
+      throw std::runtime_error(pmsg.str());
+    }
+  }
+}
+
 // [[Rcpp::export]]
 SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
     SEXP parametersS, Rcpp::Function callback) {
@@ -214,26 +243,9 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
   };
   List parameters(parametersS);
   std::map<std::string, boost::any> params;
-  for (auto iparam : int_params) {
-    try {
-      params[iparam]=int64_t{as<int>(parameters[iparam])};
-    } catch (...) {
-      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<iparam;
-      std::stringstream pmsg;
-      pmsg << "Could not decode " << iparam;
-      throw std::runtime_error(pmsg.str());
-    }
-  }
-  for (auto fparam : float_params) {
-    try {
-      params[fparam]=double{as<double>(parameters[fparam])};
-    } catch (...) {
-      BOOST_LOG_TRIVIAL(error)<<"Could not decode "<<fparam;
-      std::stringstream pmsg;
-      pmsg << "Could not decode " << fparam;
-      throw std::runtime_error(pmsg.str());
-    }
-  }
+  ConvertIntParams(parameters, params, int_params);
+  ConvertFloatParams(parameters, params, float_params);
+
   int64_t rand_seed=int64_t{as<int>(parameters["seed"])};
 
   auto observer=std::make_shared<CallbackEventObserver>(callback);
@@ -267,47 +279,36 @@ SEXP simple_hazard(SEXP pairwise_distanceS, SEXP street_matrixS,
 
 
 // [[Rcpp::export]]
-DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS) {
+DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS,
+    SEXP parametersS, Rcpp::Function callback) {
   afidd::LogInit("info");
 
   NumericVector pairwise(pairwise_distanceS);
   std::vector<double> distance(pairwise.begin(), pairwise.end());
+  IntegerVector street_matrix(street_matrixS);
+  std::vector<int> streets(street_matrix.begin(), street_matrix.end());
+
+  BOOST_LOG_TRIVIAL(debug)<<"Unpacking parameters";
+
+  static const std::vector<std::string> int_params={
+    "individual_cnt", "initial_bug_cnt", "seed"
+  };
+  static const std::vector<std::string> float_params={
+    "birth", "death", "carrying", "alpha1", "alpha2", "streetfactor",
+    "cutoff", "move0", "move1", "gamma"
+  };
 
   List parameters(parametersS);
   std::map<std::string, boost::any> params;
-  for (auto iname : std::vector<std::string>{"individual_cnt", "seed",
-      "initial_bug_cnt"}) {
-    try {
-      params[iname]=int64_t{as<int>(parameters[iname])};
-    } catch (std::exception& e) {
-      BOOST_LOG_TRIVIAL(error) << "Could not cast "<<iname<<
-        " to an integer";
-      throw;
-    }
-  }
-  for (auto dname : std::vector<std::string>{"birth", "death", "carrying",
-      "move0", "move1", "gamma", "cutoff"}) {
-    try {
-      params[dname]=double{as<double>(parameters[dname])};
-    } catch (std::exception& e) {
-      BOOST_LOG_TRIVIAL(error) << "Could not cast "<<dname<<" to a double";
-      throw;
-    }
-  }
+  ConvertIntParams(parameters, params, int_params);
+  ConvertFloatParams(parameters, params, float_params);
 
-  auto observer=std::make_shared<SIRObserver>();
+  auto observer=std::make_shared<CallbackEventObserver>(callback);
 
   int64_t rand_seed=boost::any_cast<int64_t>(params["seed"]);
   RandGen rng(rand_seed);
   hsb::bugs::SIR_run(params, distance, observer, rng);
-
-  NumericVector when(observer->when_.begin(), observer->when_.end());
-  IntegerVector what(observer->what_.begin(), observer->what_.end());
-  IntegerVector who(observer->who_.begin(), observer->who_.end());
-  IntegerVector who2(observer->who2_.begin(), observer->who2_.end());
-
-  return DataFrame::create(Named("times")=when,
-      Named("event")=what, Named("who")=who, Named("actor")=who2);
+  return Rcpp::wrap(0);
 }
 
 // [[Rcpp::export]]

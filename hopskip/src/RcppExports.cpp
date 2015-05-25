@@ -36,14 +36,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // bugs
-DataFrame bugs(SEXP pairwise_distanceS, SEXP parametersS);
-RcppExport SEXP hopskip_bugs(SEXP pairwise_distanceSSEXP, SEXP parametersSSEXP) {
+DataFrame bugs(SEXP pairwise_distanceS, SEXP street_matrixS, SEXP parametersS, Rcpp::Function callback);
+RcppExport SEXP hopskip_bugs(SEXP pairwise_distanceSSEXP, SEXP street_matrixSSEXP, SEXP parametersSSEXP, SEXP callbackSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< SEXP >::type pairwise_distanceS(pairwise_distanceSSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type street_matrixS(street_matrixSSEXP);
     Rcpp::traits::input_parameter< SEXP >::type parametersS(parametersSSEXP);
-    __result = Rcpp::wrap(bugs(pairwise_distanceS, parametersS));
+    Rcpp::traits::input_parameter< Rcpp::Function >::type callback(callbackSEXP);
+    __result = Rcpp::wrap(bugs(pairwise_distanceS, street_matrixS, parametersS, callback));
     return __result;
 END_RCPP
 }
