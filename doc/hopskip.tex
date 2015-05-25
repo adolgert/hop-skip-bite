@@ -592,4 +592,56 @@ I expect sensitivity to $r$ and $K'$ to be lower. They
 just set the shape of the curve.
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discrete Bug Counts}
+The main reference for stochastic models at the bug level
+is N{\aa}sell\cite{Nasell2001}. Let's first discuss a single household.
+The state of the house is $n$, the current number of bugs.
+Given $n$, the birth rate and death rate are
+\begin{eqnarray}
+  \lambda_n & = & \lambda\left(1-\alpha_1\frac{n}{N}\right)n \\
+  \mu_n & = & \mu\left(1+\alpha_2\frac{n}{N}\right)n
+\end{eqnarray}
+with the caveat that, at $n=N$, the birth rate is defined at zero.
+This makes the system bounded. $N$ is not the carrying capacity.
+The parameters are then $N$, $\lambda$, $\mu$, $\alpha_1$, and $\alpha_2$.
+
+The assumption earlier was that the rate of infestation of
+neighbors is proportional to the excess growth rate, which is
+$\lambda\alpha_1n^2/N$. Two different ways to understand this
+are as a heuristic or as a microscopic model. The heuristic assumes
+that excess growth rate results in a higher hazard rate for infestation
+of neighbors, meaning the probability of infestation given that the
+neighbors aren't yet infested. This excludes re-infestation, or adding
+bugs to a house that already has bugs. The microscopic model
+sees bugs as leaving one house, dying at a rate, and arriving at neighbors.
+In this case, having multiple infested neighbors increases the chance
+that early infestation survives stochastic die-off.
+
+The basic beginning question is what values of parameters for
+a single house with bugs correspond to a logistic model with the given
+parameters. This system will have $R_0=\lambda/\mu>1$. In this
+case, the carrying capacity is
+\begin{equation}
+  K_1=\frac{R_0-1}{\alpha_1 R_0+\alpha_2}N.
+\end{equation}
+The variance on carrying capacity is related to the $\alpha$s,
+\begin{equation}
+  \sigma_1=\frac{\sqrt{(\alpha_1+\alpha_2)R_0}}{\alpha_1R_0+\alpha_2}\sqrt{N}.
+\end{equation}
+N{\aa}sell's examples use $\alpha_1=1$ and $\alpha_2=0$. 
+Fixing this choice would fix variance in the distribution, given birth
+and death rates to determine $R_0$. If there were data on stochastic die-off,
+it would inform the choice of these parameters.
+
+Do we know the growth rate, $r$? Compared to the microscopic model,
+$r=\mu(R_0-1)=\lambda-\mu$. What is measured in the lab is closer to $\lambda$.
+Try fixing $\alpha_1=1$ and $\alpha_2=0$. Then
+\begin{equation}
+  K_1=\frac{R_0-1}{R_0}N=\frac{\lambda-\mu}{\lambda}N.
+\end{equation}
+
+\bibliographystyle{plain}
+\bibliography{hopskip}
 \end{document}
