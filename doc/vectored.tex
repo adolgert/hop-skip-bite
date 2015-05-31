@@ -71,7 +71,16 @@ a Verhulst model for the insects and establishes a projection
 to the more coarse-grained \textsc{si} description.
 
 
-\section{Explicit Spatial Vector Movement Model}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Models}
+\subsection{Hop-skip-jump Movement Model}
+MaxEnt in space, with a choice for normalization.
+
+Add streets.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Explicit Spatial Vector Movement Model}
 It would be possible to construct a colony growth and
 vector movement model for T.\ infestans from expert opinion.
 The goal of this article is to ask how to rationally project
@@ -102,9 +111,37 @@ about mobility of bugs.
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Susceptible-infested House Model}
 
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Coarse-Graining by Projection}
+Given the model for behavior of individual vectors, construct a 
+model for behavior of house infestations.
+
+\begin{tabular}{ll}
+Model & Projection \\
+SI & A house is infested if vectors would last past stochastic die-off. \\
+SIS & A house is infested if there is one bug. \\
+SI & Constant hazard rate for infectiousness.
+\end{tabular}
+
+Fidelity of coarse-grained model over long times.
+Fidelity of coarse-grained model for early outbreaks.
+
+
+
+\section{Likelihood of Trajectory}
+Given a measured trajectory, what is the likelihood using
+a coarse-grained model, derived from the vector model?
+
+\begin{itemize}
+\item Using MLE on log-likelihood trajectories.
+\item Using synthetic likelihood and MCMC.
+\item Using ABC?
+\end{itemize}
 
 
 \bibliographystyle{plain}
