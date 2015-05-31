@@ -224,7 +224,7 @@ sir.generate <- function(run_cnt=1, outfile="sir.h5",
 
 
 verhulst.generate <- function(run_cnt=1, outfile="verhulst.h5",
-    housesfile="houses.txt", crossingsfile="crossings.txt") {
+    housesfile="houses.txt", crossingsfile="crossings.txt", max_time=5.0) {
   houses.table <- read.csv(housesfile)
   print(houses.table)
   houses <- ppp(houses.table$x, houses.table$y)
@@ -245,9 +245,9 @@ verhulst.generate <- function(run_cnt=1, outfile="verhulst.h5",
 
 
   p<-c(individual_cnt=dim(dx)[[1]], seed=33333, birth=lambda, death=mu,
-    carrying=N, move0=0.3, move1=0.001, gamma=0.1, initial_bug_cnt=20,
+    carrying=N, move0=0.3, move1=0.001, gamma=0.1, initial_bug_cnt=1,
     cutoff=0.1, alpha1=1.0, alpha2=0.0, streetfactor=0.4, runs=run_cnt,
-    initial=start, max_time=5.0)
+    initial=start, max_time=max.time)
 
   create_file(outfile)
   write_locations(outfile, houses)
