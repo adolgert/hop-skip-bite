@@ -904,14 +904,15 @@ segment_intersections(const std::vector<std::pair<double,double>>& inpoints,
   return std::make_tuple(intersection_points, intersections);
 }
 
-std::multimap<PointIdx,SegmentIdx>
+
+std::vector<std::pair<size_t,size_t>>
 segment_intersections_ab(const std::vector<std::pair<double,double>>& inpoints,
     const std::vector<std::pair<size_t,size_t>>& inlinesa,
     const std::vector<std::pair<size_t,size_t>>& inlinesb) {
-  std::multimap<PointIdx,SegmentIdx> intersections;
-  std::vector<std::pair<double,double>> intersection_points;
+  std::vector<std::pair<size_t,size_t>> intersections;
+  BOOST_LOG_TRIVIAL(trace)<<"segment_intersections_ab points "<<inpoints.size()
+    <<" linesa "<<inlinesa.size()<<" linesb "<<inlinesb.size();
   // Make a copy so that we can add points for intersections to the list.
-  size_t intersection_cnt=0;
   for (size_t s0idx=0; s0idx<inlinesa.size(); ++s0idx) {
     size_t p0_idx=inlinesa[s0idx].first;
     size_t p1_idx=inlinesa[s0idx].second;
@@ -923,11 +924,10 @@ segment_intersections_ab(const std::vector<std::pair<double,double>>& inpoints,
       Point p2(inpoints[p2_idx]);
       Point p3(inpoints[p3_idx]);
       if (Intersect(p0, p1, p2, p3)) {
-        intersections.emplace(intersection_cnt, s0idx);
-        intersections.emplace(intersection_cnt, s1idx);
-        ++intersection_cnt;
+        intersections.emplace_back(s0idx, s1idx);
       }
     }
   }
+  BOOST_LOG_TRIVIAL(trace)<<"Found intersections "<<intersections.size();
   return intersections;
 }

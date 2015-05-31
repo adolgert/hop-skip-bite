@@ -1,3 +1,9 @@
+//
+// This file is wrapped for R.
+// To wrap it, go to the directory above src and run R on
+//
+// library(Rcpp)
+// compileAttributes()
 #include <fstream>
 #include <set>
 #include "boost/any.hpp"
@@ -88,6 +94,96 @@ struct TKeyWriter {
  */
 // [[Rcpp::export]]
 SEXP intersections(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
+    SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
+  afidd::LogInit("debug");
+
+  NumericVector unitsx(sunitsx);
+  NumericVector unitsy(sunitsy);
+  NumericVector endpointsx(sendpointsx);
+  NumericVector endpointsy(sendpointsy);
+  IntegerVector streetsp0(sstreetsp0);
+  IntegerVector streetsp1(sstreetsp1);
+  assert(unitsx.size()==unitsy.size());
+  assert(endpointsx.size()==endpointsy.size());
+  assert(streetsp0.size()==streetsp1.size());
+
+  size_t unit_cnt=unitsx.size();
+  size_t dist_cnt=unit_cnt*(unit_cnt-1)/2;
+  size_t street_cnt=streetsp0.size();
+  size_t street_pt_cnt=endpointsx.size();
+  BOOST_LOG_TRIVIAL(trace) << "units "<<unit_cnt<<" dists "<<dist_cnt<<" streets "
+    << street_cnt << " streetpt " << street_pt_cnt ;;
+  std::vector<std::pair<double,double>> points(unit_cnt+street_pt_cnt);
+  BOOST_LOG_TRIVIAL(trace) << "placing points: ";
+  for (size_t uidx=0; uidx<unit_cnt; ++uidx) {
+    BOOST_LOG_TRIVIAL(trace) << "("<<unitsx[uidx] << " " << unitsy[uidx] << ") ";
+    points[uidx]=std::make_pair(unitsx[uidx], unitsy[uidx]);
+  }
+
+  BOOST_LOG_TRIVIAL(trace) << "street points ";
+  for (size_t eidx=0; eidx<street_pt_cnt; ++eidx) {
+    BOOST_LOG_TRIVIAL(trace) << "("<<endpointsx[eidx] << " " << endpointsy[eidx]<<") ";
+    points[unit_cnt+eidx]=std::make_pair(endpointsx[eidx], endpointsy[eidx]);
+  }
+  // Make line segments
+  std::vector<std::pair<size_t,size_t>> distancesegs(dist_cnt, {0,0});
+  BOOST_LOG_TRIVIAL(trace) << "segments between pairs of units" ;
+  // Add segments between all pairs of units.
+  {
+    size_t seg_idx=0;
+    for (size_t source_idx=0; source_idx<unit_cnt-1; ++source_idx) {
+      for (size_t target_idx=source_idx+1; target_idx<unit_cnt; ++target_idx) {
+        distancesegs[seg_idx]=std::make_pair(source_idx, target_idx);
+        ++seg_idx;
+      }
+    }
+  }
+  // segments for streets.
+  std::vector<std::pair<size_t,size_t>> streetsegs(street_cnt, {0,0});
+  for (size_t street_idx=0; street_idx<street_cnt; ++street_idx) {
+    // -1 to move to 0-based indexing
+    streetsegs[street_idx]=std::make_pair(streetsp0[street_idx]-1+unit_cnt,
+      streetsp1[street_idx]-1+unit_cnt);
+  }
+
+  BOOST_LOG_TRIVIAL(debug) << "Calling segment_intersections_ab";
+  auto intverts=segment_intersections_ab(points, distancesegs, streetsegs);
+
+  BOOST_LOG_TRIVIAL(debug) << "Intersections to pass back "<<intverts.size();
+  for (auto& mmi : intverts) {
+    BOOST_LOG_TRIVIAL(trace) << '(' << mmi.first << ',' << mmi.second << ") ";
+  }
+  IntegerVector crossings(unit_cnt*unit_cnt);
+
+  BOOST_LOG_TRIVIAL(debug) << "Populating matrix";
+  for (auto vert_cursor=intverts.cbegin(); vert_cursor!=intverts.cend();
+      ++vert_cursor) {
+    BOOST_LOG_TRIVIAL(trace) << "Popmat " << vert_cursor->first;
+    auto& arcref=distancesegs[vert_cursor->first];
+    BOOST_LOG_TRIVIAL(trace) << "Popmat " << arcref.first<<" "<<arcref.second;
+    auto idxl=arcref.first*unit_cnt + arcref.second;
+    auto idxr=arcref.second*unit_cnt + arcref.first;
+    BOOST_LOG_TRIVIAL(trace) << "("<<idxl << " " << idxr << ") " ;
+    crossings[idxl]+=1;
+    crossings[idxr]+=1;
+  }
+
+  return crossings;
+}
+
+
+
+/*! How many times does the bisector of two units cross a street?
+ *  
+ *  sunits = matrix of (x,y) for unit locations.
+ *  spoints = matrix of (x,y) of endpoints of streets
+ *  sstreets = matrix of (p0, p1) index into endpoints defining a street.
+ *
+ *  \returns Number of crossings for each pair, ordered as a flattened
+ *           two-dimensional matrix, suitable for adding to pairwise_distance. 
+ */
+// [[Rcpp::export]]
+SEXP intersections_sweep(SEXP sunitsx, SEXP sunitsy, SEXP sendpointsx,
     SEXP sendpointsy, SEXP sstreetsp0, SEXP sstreetsp1) {
   afidd::LogInit("info");
 

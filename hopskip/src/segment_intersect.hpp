@@ -19,5 +19,9 @@ segment_intersections_sweep(
     const std::vector<std::pair<double,double>>& inpoints,
     const std::vector<std::pair<size_t,size_t>>& inlines);
 
+std::vector<std::pair<size_t,size_t>>
+segment_intersections_ab(const std::vector<std::pair<double,double>>& inpoints,
+    const std::vector<std::pair<size_t,size_t>>& inlinesa,
+    const std::vector<std::pair<size_t,size_t>>& inlinesb);
 // _SEGMENT_INTERSECT_H_
 #endif
