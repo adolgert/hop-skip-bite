@@ -107,6 +107,26 @@ foreach.trajectory <- function(infile, functor, limit=-1) {
   }
 }
 
+
+# Returns a single dataset by name, such as "dset1".
+# Returns a list of locations and events, where events is a data frame.
+single.trajectory <- function(infile, trajectory.name) {
+  matrix_locations<-h5read(infile, "locations")
+  lcnt<-dim(matrix_locations)[1]
+  locations<-ppp(matrix_locations[1:lcnt,1], matrix_locations[1:lcnt, 2])
+  trajectory_group<-paste("trajectory", trajectory.name, sep="/")
+  event<-h5read(infile, paste(trajectory_group, "Event", sep="/"),
+    bit64conversion="int")
+  who<-h5read(infile, paste(trajectory_group, "Who", sep="/"),
+    bit64conversion="int")
+  whom<-h5read(infile, paste(trajectory_group, "Whom", sep="/"),
+    bit64conversion="int")
+  when<-h5read(infile, paste(trajectory_group, "When", sep="/"))
+  df<-data.frame(when=when, event=event, who=who, whom=whom)
+  list(locations=locations, events=df)
+}
+
+
 test_create_file <- function() {
   outfile="z.h5"
   create_file(outfile)

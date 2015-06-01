@@ -35,7 +35,7 @@ sir.h5: try.R sir_run.R
 
 # Run a verhulst on the landscape.
 verhulst.h5: verhulst_run.R try.R sir_run.R houses.txt crossings.txt
-	$(REXEC) --args 10/houses.txt 10/crossings.txt verhulst.h5 1 -1 < verhulst_run.R
+	$(REXEC) --args 10/houses.txt 10/crossings.txt verhulst.h5 1 10 < verhulst_run.R
 
 # Run verhulst on a single house.
 verhulst_single.h5: verhulst_run.R try.R sir_run.R one_house.txt one_house_cross.txt
