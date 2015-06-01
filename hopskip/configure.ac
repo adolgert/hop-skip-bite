@@ -6,7 +6,7 @@ AC_INIT([hopskip], [0.1], [ajd27@cornell.edu])
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AC_CONFIG_SRCDIR([src/rcpp_hello_world.cpp])
+AC_CONFIG_SRCDIR([src/rcpp_hopskip.cpp])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([src/Makevars])
 
