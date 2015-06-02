@@ -76,8 +76,13 @@ to the more coarse-grained \textsc{si} description.
 \subsection{Hop-skip-jump Movement Model}
 MaxEnt in space, with a choice for normalization.
 
-Add streets.
+How to add streets.
 
+\begin{figure}
+\centerline{\includegraphics[width=10cm]{blocks.pdf}}
+\caption{Houses on different blocks are separated by streets.
+Calculate the number of streets crossed by walking house-to-house.\label{fig:blocks}}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Explicit Spatial Vector Movement Model}
@@ -110,6 +115,19 @@ to neighboring houses and may conflate with inference
 about mobility of bugs.
 
 
+\begin{figure}
+\centerline{\includegraphics[width=10cm]{housecounts.pdf}}
+\caption{For a small simulation of ten houses, the vectors increase in number one
+individual at a time.\label{fig:housecounts}}
+\end{figure}
+
+
+\begin{figure}
+\centerline{\includegraphics[width=10cm]{houselive.pdf}}
+\caption{This shows when each house has any bugs in it.
+The arrows indicate movement of a bug from one house to another.
+Stochastic die-off is shown by lines ending.\label{fig:houselive}}
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Susceptible-infested House Model}

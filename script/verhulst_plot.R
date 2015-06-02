@@ -41,12 +41,10 @@ plot.verhulst.set <- function(datafile, plotfile) {
     out.df <- rbind(out.df, add.df)
   }
   print(paste("output is", plotfile))
-  pdf(plotfile)
   qplot(data=out.df, when, bugs, geom="line", colour=who) +
     labs(x="Time [years]", y="Individuals", colour="",
       title="Vector Trajectory")
-  dev.off()
-  out.df
+  ggsave(file=plotfile)
 }
 
 
